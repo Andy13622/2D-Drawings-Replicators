@@ -1,0 +1,4244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D CAD Pedestal Basin Drawing Creator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+    .font-mono-cad {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom subtle CAD grid background on viewport */
+    .cad-grid-bg {
+      background-color: #ffffff;
+      background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+        linear-gradient(to right, rgba(148, 163, 184, 0.28) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.28) 1px, transparent 1px);
+      background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+    }
+    .cad-clean-bg {
+      background-color: #ffffff;
+    }
+    /* Interactive SVG dimension hover highlight */
+    .dim-interactive {
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .dim-interactive:hover text {
+      fill: #0284c7;
+      font-weight: 600;
+    }
+    .dim-interactive:hover rect.dim-hit-box {
+      fill: rgba(2, 132, 199, 0.08);
+      stroke: rgba(2, 132, 199, 0.45);
+    }
+    /* Custom scrollbar for sidebar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 h-screen flex flex-col overflow-hidden">
+
+  <!-- Top Engineering CAD Toolbar -->
+  <header class="bg-slate-900 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 shadow-sm z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400">
+        <!-- CAD Drafting Icon -->
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" />
+          <path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-semibold tracking-tight text-white">2D CAD Technical Drawing Studio</h1>
+          <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-cad font-medium bg-slate-800 text-sky-300 border border-slate-700">
+            MODEL: TR363-V3
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden md:block">Parametric Pedestal Washbasin Elevation &amp; Plan &bull; 1:1 Millimeter Vector CAD</p>
+      </div>
+    </div>
+
+    <!-- Center Viewport Quick Tools -->
+    <div class="flex items-center gap-1.5 bg-slate-800/90 p-1 rounded-lg border border-slate-700/80">
+      <button id="btnZoomOut" title="Zoom Out" class="p-1.5 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+      </button>
+      <span id="zoomLabel" class="px-2 text-xs font-mono-cad text-slate-200 min-w-[52px] text-center">100%</span>
+      <button id="btnZoomIn" title="Zoom In" class="p-1.5 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+      </button>
+      <button id="btnZoomReset" title="Fit Drawing to Screen" class="px-2 py-1 text-xs font-medium rounded hover:bg-slate-700 text-slate-300 hover:text-white transition">
+        Fit
+      </button>
+      <div class="w-px h-4 bg-slate-700 mx-0.5"></div>
+      <button id="btnToggleGrid" title="Toggle CAD Grid" class="px-2.5 py-1 text-xs font-medium rounded bg-slate-700 text-sky-300 transition">
+        Grid: ON
+      </button>
+    </div>
+
+    <!-- Primary Export & Upload Actions -->
+    <div class="flex items-center gap-2">
+      <!-- Self-Contained JPEG Vectorizer Upload Button -->
+      <input id="jpegUploadInput" type="file" accept=".jpg,.jpeg,image/jpeg" class="hidden" />
+      <button id="btnUploadJpeg" title="Upload JPEG Technical Drawing to Replicate in Fine Black Vector Lines" class="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow-md shadow-sky-950/30 transition cursor-pointer">
+        <svg class="w-4 h-4 stroke-[2.25]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <span>Upload JPEG</span>
+      </button>
+      <button id="btnClearUpload" title="Return to Parametric TR363 Drawing" class="hidden items-center gap-1 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 font-medium text-xs px-2.5 py-2 rounded-lg transition cursor-pointer">
+        <span>Parametric</span>
+      </button>
+
+      <button id="btnExportDwg" class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-semibold text-xs sm:text-sm px-4 py-2 rounded-lg shadow-md shadow-emerald-950/30 transition cursor-pointer">
+        <svg class="w-4 h-4 stroke-[2.25]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span>Export DWG</span>
+      </button>
+      <div class="relative">
+        <button id="btnMoreExports" title="Additional CAD Formats" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <!-- Dropdown Menu -->
+        <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-xl border border-slate-200 py-1.5 z-50 text-slate-800">
+          <div class="px-3 py-1.5 border-b border-slate-100">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Vector CAD Formats</p>
+          </div>
+          <button id="btnExportDwgAlt" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center justify-between">
+            <span class="font-medium text-slate-800">AutoCAD Drawing (.dwg)</span>
+            <span class="font-mono-cad text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">1:1 mm</span>
+          </button>
+          <button id="btnExportDxf" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center justify-between">
+            <span class="font-medium text-slate-800">AutoCAD ASCII DXF (.dxf)</span>
+            <span class="font-mono-cad text-[10px] bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded">R12/2000</span>
+          </button>
+          <button id="btnExportSvg" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center justify-between">
+            <span class="font-medium text-slate-800">Scalable Vector (.svg)</span>
+            <span class="font-mono-cad text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">Vector</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Tabs: Parametric Drawing | Image Upload & Replicate -->
+  <nav id="mainTabs" class="bg-slate-900 border-b border-slate-800 px-4 pt-1.5 flex items-end gap-1 shrink-0 z-20">
+    <button id="tabParametric" type="button" class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg bg-slate-100 text-slate-900 border border-slate-100 transition">
+      Parametric Drawing
+    </button>
+    <button id="tabUpload" type="button" class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent transition flex items-center gap-1.5">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+      <span>Image Upload &amp; Replicate</span>
+    </button>
+    <button id="tabImgParam" type="button" class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent transition flex items-center gap-1.5">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" />
+      </svg>
+      <span>Image &rarr; Parametric Drawing</span>
+    </button>
+  </nav>
+
+  <!-- Parametric Drawing page wrapper (original workspace inside is unchanged) -->
+  <div id="pageParametric" class="flex-1 flex flex-col overflow-hidden">
+
+  <!-- Main Split Workspace -->
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+    <!-- Left Parametric Control Panel -->
+    <aside class="w-full lg:w-80 xl:w-96 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between overflow-y-auto shrink-0 z-10">
+      <div class="p-4 sm:p-5 space-y-5">
+
+        <!-- Uploaded JPEG Vector Replication Panel (Appears when a JPEG is loaded) -->
+        <div id="jpegTracePanel" class="hidden p-3.5 rounded-xl bg-sky-50/90 border border-sky-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xs font-bold uppercase tracking-wider text-sky-900">JPEG Fine-Line Replication</h2>
+              <p id="jpegFileNameLabel" class="text-[11px] font-mono-cad text-sky-700 truncate max-w-[190px]">drawing.jpg</p>
+            </div>
+            <button id="btnExitTraceMode" class="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline px-2 py-0.5 rounded">
+              Exit
+            </button>
+          </div>
+
+          <div class="space-y-2.5 pt-1 border-t border-sky-200/80">
+            <div>
+              <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+                <span>Ink Threshold Sensitivity</span>
+                <span id="lblTraceThreshold" class="font-mono-cad text-sky-800">175</span>
+              </div>
+              <input id="inputTraceThreshold" type="range" min="40" max="245" value="175" class="w-full accent-sky-600 cursor-pointer" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+                <span>Vector Smoothness / Precision</span>
+                <span id="lblTraceSmoothness" class="font-mono-cad text-sky-800">0.65 px</span>
+              </div>
+              <input id="inputTraceSmoothness" type="range" min="0.2" max="2.5" step="0.05" value="0.65" class="w-full accent-sky-600 cursor-pointer" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+                <span>Replicated Fine Line Width</span>
+                <span id="lblTraceStroke" class="font-mono-cad text-sky-800">1.35 px</span>
+              </div>
+              <input id="inputTraceStroke" type="range" min="0.5" max="3.0" step="0.05" value="1.35" class="w-full accent-sky-600 cursor-pointer" />
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-slate-700">
+                <input id="chkTraceCenterline" type="checkbox" checked class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5" />
+                <span>Single-Line Centerline Extraction</span>
+              </label>
+              <span id="lblTraceStats" class="text-[10px] font-mono-cad text-slate-500">0 paths</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Header -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Labelled Dimensions (mm)</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Edit values below or double-click numbers on canvas</p>
+          </div>
+          <button id="btnResetDefaults" class="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline px-2 py-1 rounded">
+            Reset V3
+          </button>
+        </div>
+
+        <!-- Dimension Inputs Grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-1 gap-3.5">
+
+          <!-- 1. Total Height (840) -->
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/90 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/15 transition">
+            <div class="flex items-center justify-between mb-1">
+              <label for="inputHeight" class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-slate-800"></span>
+                Total Height (H)
+              </label>
+              <span class="text-[11px] font-mono-cad text-slate-400">Left Elevation</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="inputHeight" type="number" min="500" max="1200" step="1" value="840"
+                class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+              <span class="text-xs font-mono-cad text-slate-500">mm</span>
+            </div>
+          </div>
+
+          <!-- 2. Depth / Projection (480) -->
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/90 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/15 transition">
+            <div class="flex items-center justify-between mb-1">
+              <label for="inputDepth" class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-slate-800"></span>
+                Basin Projection / Depth (D)
+              </label>
+              <span class="text-[11px] font-mono-cad text-slate-400">Top Elevation</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="inputDepth" type="number" min="300" max="750" step="1" value="480"
+                class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+              <span class="text-xs font-mono-cad text-slate-500">mm</span>
+            </div>
+          </div>
+
+          <!-- 3. Basin Width (575) -->
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/90 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/15 transition">
+            <div class="flex items-center justify-between mb-1">
+              <label for="inputWidth" class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-slate-800"></span>
+                Basin Overall Width (W)
+              </label>
+              <span class="text-[11px] font-mono-cad text-slate-400">Top Plan</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="inputWidth" type="number" min="380" max="900" step="1" value="575"
+                class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+              <span class="text-xs font-mono-cad text-slate-500">mm</span>
+            </div>
+          </div>
+
+          <!-- 4. Tap-to-Drain Hole Centre Distance (205) -->
+          <div class="p-3 rounded-xl bg-sky-50/70 border border-sky-200 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/15 transition">
+            <div class="flex items-center justify-between mb-1">
+              <label for="inputHoleDist" class="text-xs font-semibold text-sky-950 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-600"></span>
+                Tap-to-Drain Hole Centre (C)
+              </label>
+              <span class="text-[11px] font-mono-cad text-sky-700">Right Plan</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="inputHoleDist" type="number" min="110" max="350" step="1" value="205"
+                class="w-full bg-white border border-sky-300 rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+              <span class="text-xs font-mono-cad text-slate-500">mm</span>
+            </div>
+            <p class="text-[11px] text-sky-800/80 mt-1.5 leading-snug">
+              Measures directly from upper tap hole centre to basin drainage hole centre.
+            </p>
+          </div>
+        </div>
+
+        <!-- Drafting Line Style & Options -->
+        <div class="pt-2 border-t border-slate-200 space-y-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">CAD Drafting Options</h3>
+
+          <!-- Line Weight Control -->
+          <div class="flex items-center justify-between">
+            <label for="selectLineWeight" class="text-xs font-medium text-slate-700">CAD Line Weight</label>
+            <select id="selectLineWeight" class="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono-cad text-slate-800 focus:outline-none focus:border-sky-500">
+              <option value="1.5">0.25 mm (Fine)</option>
+              <option value="2.1" selected>0.35 mm (ISO Standard)</option>
+              <option value="2.8">0.50 mm (Bold V3)</option>
+            </select>
+          </div>
+
+          <!-- Centerlines Crosshair Option -->
+          <label class="flex items-center justify-between cursor-pointer py-0.5">
+            <span class="text-xs font-medium text-slate-700">Show Hole Centre Crosshairs</span>
+            <input id="chkCrosshairs" type="checkbox" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4" />
+          </label>
+
+          <!-- Clean CAD vs Strict V3 Leader Mode -->
+          <label class="flex items-center justify-between cursor-pointer py-0.5">
+            <div>
+              <span class="text-xs font-medium text-slate-700 block">Clean CAD Extension Lines</span>
+              <span class="text-[10px] text-slate-400">Aligns top arrow directly with tap hole centre</span>
+            </div>
+            <input id="chkCleanCad" type="checkbox" checked class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Bottom Export Guarantee Badge -->
+      <div class="p-4 bg-slate-50 border-t border-slate-200">
+        <div class="flex items-start gap-2.5">
+          <div class="mt-0.5 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div class="text-[11px] text-slate-600 leading-relaxed">
+            <span class="font-semibold text-slate-800">1:1 Millimeter CAD Output:</span> Clicking <strong class="text-slate-900">Export DWG</strong> generates exact vector entities (<code class="font-mono-cad text-[10px] bg-slate-200/70 px-1 rounded">LINE</code>, <code class="font-mono-cad text-[10px] bg-slate-200/70 px-1 rounded">ARC</code>, <code class="font-mono-cad text-[10px] bg-slate-200/70 px-1 rounded">CIRCLE</code>, <code class="font-mono-cad text-[10px] bg-slate-200/70 px-1 rounded">SOLID</code>, <code class="font-mono-cad text-[10px] bg-slate-200/70 px-1 rounded">TEXT</code>) on structured CAD layers matching your live drawing.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Interactive CAD Canvas Viewport -->
+    <main id="viewportContainer" class="flex-1 relative cad-grid-bg overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing">
+
+      <!-- Floating Top-Left View Indicator -->
+      <div class="absolute top-3 left-3 pointer-events-none flex flex-wrap items-center gap-2 z-10">
+        <div class="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-sm flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="viewModeBadgeText" class="text-[11px] font-mono-cad font-medium text-slate-700">ORTHOGRAPHIC 2D &bull; UNITS: MM</span>
+        </div>
+        <div id="liveSummaryBadge" class="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-sm text-[11px] font-mono-cad text-slate-600">
+          575 &times; 480 &times; 840 mm | C: 205 mm
+        </div>
+      </div>
+
+      <!-- Inline Canvas Dimension Editor Popover (appears on double-click) -->
+      <div id="inlineEditorModal" class="hidden absolute z-30 bg-white rounded-xl shadow-2xl border border-slate-300 p-3 w-56">
+        <label id="inlineEditorLabel" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Edit Dimension</label>
+        <div class="flex items-center gap-1.5">
+          <input id="inlineEditorInput" type="number" step="1" class="w-full border border-sky-500 rounded-lg px-2.5 py-1 text-sm font-mono-cad font-bold text-slate-900 focus:outline-none" />
+          <button id="inlineEditorApply" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">OK</button>
+        </div>
+      </div>
+
+      <!-- Toast Notification -->
+      <div id="toastNotification" class="pointer-events-none opacity-0 translate-y-2 transition-all duration-200 absolute bottom-4 right-4 z-30 bg-slate-900 text-white text-xs font-medium px-3.5 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <span id="toastText">Exported CAD file successfully</span>
+      </div>
+
+      <!-- Master Vector SVG CAD Canvas -->
+      <svg id="cadSvg" class="w-full h-full" viewBox="0 0 1320 980" xmlns="http://www.w3.org/2000/svg">
+        <g id="panZoomGroup">
+          <g id="cadDrawingRoot"></g>
+        </g>
+      </svg>
+
+      <!-- Bottom-Left Pan/Zoom Hint -->
+      <div class="absolute bottom-3 left-3 pointer-events-none hidden sm:flex items-center gap-2 text-[11px] text-slate-500 bg-white/85 backdrop-blur-sm px-2.5 py-1 rounded-md border border-slate-200/80">
+        <span>Scroll to Zoom &bull; Drag to Pan &bull; Double-Click Dimension to Edit</span>
+      </div>
+    </main>
+  </div>
+
+  </div><!-- /#pageParametric -->
+
+  <!-- ===================== IMAGE UPLOAD & REPLICATE PAGE (separate tab) ===================== -->
+  <div id="pageUpload" class="flex-1 flex-col lg:flex-row overflow-hidden" style="display:none">
+
+    <!-- Left control panel -->
+    <aside class="w-full lg:w-80 xl:w-96 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between overflow-y-auto shrink-0 z-10 max-h-[55vh] lg:max-h-none">
+      <div class="p-4 sm:p-5 space-y-5">
+
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Image Upload</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Upload a JPEG or PNG drawing. It is replicated as fine black vector lines, fully self-contained in your browser.</p>
+        </div>
+
+        <input id="upFileInput" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden" />
+        <div id="upDropZone" role="button" tabindex="0" class="rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/60 hover:bg-sky-50 p-4 text-center cursor-pointer transition">
+          <div class="inline-flex items-center gap-1.5 bg-sky-600 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow-md shadow-sky-950/20">
+            <svg class="w-4 h-4 stroke-[2.25]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>Upload JPEG / PNG</span>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2">or drag &amp; drop an image here</p>
+          <p id="upFileInfo" class="hidden text-[11px] font-mono-cad text-sky-800 mt-2 break-all"></p>
+        </div>
+
+        <!-- Image Dimensions -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Image Dimensions</h3>
+            <button id="upBtnResetSize" type="button" class="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline px-2 py-0.5 rounded">Reset size</button>
+          </div>
+
+          <table class="w-full text-[11px] font-mono-cad">
+            <thead>
+              <tr class="text-slate-400 text-left">
+                <th class="font-medium pb-1 w-8"></th>
+                <th class="font-medium pb-1">Original</th>
+                <th class="font-medium pb-1">New replica</th>
+              </tr>
+            </thead>
+            <tbody class="text-slate-800">
+              <tr><td class="text-slate-400 py-0.5">px</td><td id="upO_px">&mdash;</td><td id="upN_px" class="font-semibold text-sky-800">&mdash;</td></tr>
+              <tr><td class="text-slate-400 py-0.5">mm</td><td id="upO_mm">&mdash;</td><td id="upN_mm" class="font-semibold text-sky-800">&mdash;</td></tr>
+              <tr><td class="text-slate-400 py-0.5">cm</td><td id="upO_cm">&mdash;</td><td id="upN_cm" class="font-semibold text-sky-800">&mdash;</td></tr>
+              <tr><td class="text-slate-400 py-0.5">in</td><td id="upO_in">&mdash;</td><td id="upN_in" class="font-semibold text-sky-800">&mdash;</td></tr>
+            </tbody>
+          </table>
+
+          <div class="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-200">
+            <div>
+              <label for="upInW" class="block text-[11px] font-semibold text-slate-700 mb-1">Width <span id="upLblW" class="font-mono-cad text-slate-400">(px)</span></label>
+              <input id="upInW" type="number" step="any" min="0" style="user-select:text" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label for="upInH" class="block text-[11px] font-semibold text-slate-700 mb-1">Height <span id="upLblH" class="font-mono-cad text-slate-400">(px)</span></label>
+              <input id="upInH" type="number" step="any" min="0" style="user-select:text" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5">
+            <div>
+              <label for="upUnit" class="block text-[11px] font-semibold text-slate-700 mb-1">Unit</label>
+              <select id="upUnit" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-mono-cad text-slate-800 focus:outline-none focus:border-sky-500">
+                <option value="px" selected>px</option>
+                <option value="mm">mm</option>
+                <option value="cm">cm</option>
+                <option value="in">inch</option>
+              </select>
+            </div>
+            <div>
+              <label for="upInScale" class="block text-[11px] font-semibold text-slate-700 mb-1">Scale %</label>
+              <input id="upInScale" type="number" step="any" min="0" style="user-select:text" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label for="upInDpi" class="block text-[11px] font-semibold text-slate-700 mb-1">DPI</label>
+              <input id="upInDpi" type="number" step="1" min="1" max="2400" value="96" style="user-select:text" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+            </div>
+          </div>
+
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-xs font-medium text-slate-700">Lock aspect ratio</span>
+            <input id="upLock" type="checkbox" checked class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4" />
+          </label>
+          <p class="text-[10px] text-slate-400 leading-snug">DPI converts pixels to mm / cm / inch (96 DPI = 1 px is 0.2646 mm). Resizing is pure vector scaling, so lines stay sharp at any size.</p>
+        </div>
+
+        <!-- Replication controls -->
+        <div class="pt-2 border-t border-slate-200 space-y-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Fine-Line Replication</h3>
+
+          <div class="flex items-center justify-between">
+            <label for="upMode" class="text-xs font-medium text-slate-700">Line extraction</label>
+            <select id="upMode" class="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono-cad text-slate-800 focus:outline-none focus:border-sky-500">
+              <option value="centerline" selected>Single centreline</option>
+              <option value="outline">Stroke outlines (sub-pixel)</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center text-[11px] font-medium text-slate-700 mb-1">
+              <span>Ink Threshold <button id="upBtnAuto" type="button" class="ml-1 text-sky-600 hover:underline">Auto</button></span>
+              <span id="upLblThr" class="font-mono-cad text-sky-800">175</span>
+            </div>
+            <input id="upThr" type="range" min="40" max="245" value="175" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+              <span>Vector Precision (simplify)</span>
+              <span id="upLblEps" class="font-mono-cad text-sky-800">0.60 px</span>
+            </div>
+            <input id="upEps" type="range" min="0.2" max="2.5" step="0.05" value="0.6" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+              <span>Remove Specks (min length)</span>
+              <span id="upLblMin" class="font-mono-cad text-sky-800">3 px</span>
+            </div>
+            <input id="upMin" type="range" min="0" max="40" step="1" value="3" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+              <span>Replicated Line Width</span>
+              <span id="upLblLw" class="font-mono-cad text-sky-800">1.00 px</span>
+            </div>
+            <input id="upLw" type="range" min="0.3" max="3" step="0.05" value="1" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-xs font-medium text-slate-700">Light lines on dark background</span>
+            <input id="upInvert" type="checkbox" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4" />
+          </label>
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-xs font-medium text-slate-700">Show original behind (compare)</span>
+            <input id="upUnderlayChk" type="checkbox" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4" />
+          </label>
+          <p id="upStats" class="text-[10px] font-mono-cad text-slate-500">0 paths</p>
+          <p id="upNote" class="hidden text-[10px] text-amber-700 leading-snug"></p>
+        </div>
+
+        <!-- Exports -->
+        <div class="pt-2 border-t border-slate-200 space-y-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Export Replica</h3>
+          <div class="grid grid-cols-3 gap-2">
+            <button id="upExpSvg" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-700 text-white transition">SVG</button>
+            <button id="upExpDxf" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">DXF</button>
+            <button id="upExpPng" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition">PNG</button>
+          </div>
+          <p class="text-[10px] text-slate-400 leading-snug">SVG / DXF use the new dimensions (DXF in mm, 1:1). The header Export buttons also export this replica while this tab is open.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Replica viewport -->
+    <main id="upViewport" class="flex-1 relative cad-grid-bg overflow-hidden cursor-grab" style="touch-action:none; min-height:240px">
+
+      <div class="absolute top-3 left-3 pointer-events-none flex flex-wrap items-center gap-2 z-10">
+        <div class="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-sm flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span class="text-[11px] font-mono-cad font-medium text-slate-700">IMAGE REPLICA &bull; FINE BLACK LINE</span>
+        </div>
+        <div id="upSizeBadge" class="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-sm text-[11px] font-mono-cad text-slate-600">No image loaded</div>
+      </div>
+
+      <div id="upEmpty" class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+        <div class="bg-white/95 border border-slate-200 rounded-2xl shadow-lg px-8 py-7 text-center max-w-xs">
+          <p class="text-sm font-semibold text-slate-800">Upload a JPEG or PNG drawing</p>
+          <p class="text-xs text-slate-500 mt-1">It will be replicated here as fine black lines with its exact dimensions.</p>
+          <button id="upBtnEmpty" type="button" class="pointer-events-auto mt-4 inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg shadow-md transition">Choose image</button>
+        </div>
+      </div>
+
+      <div id="upBusy" class="absolute inset-0 z-20 bg-white/60 items-center justify-center" style="display:none">
+        <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl shadow-lg px-4 py-3">
+          <div class="w-6 h-6 rounded-full border-4 border-sky-200 border-t-sky-600 animate-spin"></div>
+          <span class="text-xs font-medium text-slate-700">Replicating drawing&hellip;</span>
+        </div>
+      </div>
+
+      <div id="upToast" class="pointer-events-none opacity-0 translate-y-2 transition-all duration-200 absolute bottom-4 right-4 z-30 bg-slate-900 text-white text-xs font-medium px-3.5 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <span id="upToastText">Done</span>
+      </div>
+
+      <svg id="upSvg" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <g id="upPanZoom">
+          <rect id="upPageRect" x="0" y="0" width="0" height="0" fill="#ffffff" stroke="#94a3b8" stroke-width="1" vector-effect="non-scaling-stroke" />
+          <image id="upUnderlay" x="0" y="0" width="0" height="0" preserveAspectRatio="none" opacity="0.35" style="display:none" />
+          <path id="upPath" d="" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+      </svg>
+
+      <div class="absolute bottom-3 left-3 pointer-events-none hidden sm:flex items-center gap-2 text-[11px] text-slate-500 bg-white/85 backdrop-blur-sm px-2.5 py-1 rounded-md border border-slate-200/80">
+        <span>Scroll to Zoom &bull; Drag to Pan &bull; Drop an image to replace</span>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== IMAGE -> PARAMETRIC DRAWING PAGE (3rd tab) ===================== -->
+  <div id="pageImgParam" class="flex-1 flex-col lg:flex-row overflow-hidden" style="display:none">
+
+    <!-- Left parametric control panel (same layout language as the first tab) -->
+    <aside class="w-full lg:w-80 xl:w-96 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between overflow-y-auto shrink-0 z-10 max-h-[55vh] lg:max-h-none">
+      <div class="p-4 sm:p-5 space-y-5">
+
+        <!-- Upload -->
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Image &rarr; Parametric Drawing</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Upload a JPEG or PNG. It is rebuilt as a vector drawing whose labelled dimensions you can edit.</p>
+        </div>
+        <input id="ipFileInput" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden" />
+        <div id="ipDropZone" role="button" tabindex="0" class="rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/60 hover:bg-sky-50 p-4 text-center cursor-pointer transition">
+          <div class="inline-flex items-center gap-1.5 bg-sky-600 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow-md shadow-sky-950/20">
+            <svg class="w-4 h-4 stroke-[2.25]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>Upload JPEG / PNG</span>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2">or drag &amp; drop an image here</p>
+          <p id="ipFileInfo" class="hidden text-[11px] font-mono-cad text-sky-800 mt-2 break-all"></p>
+        </div>
+
+        <!-- Labelled dimensions (same behaviour as tab 1) -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Labelled Dimensions (mm)</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Edit values below or double-click numbers on canvas</p>
+          </div>
+          <button id="ipBtnReset" type="button" class="text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline px-2 py-1 rounded">
+            Reset to image
+          </button>
+        </div>
+
+        <div id="ipDimList" class="grid grid-cols-2 lg:grid-cols-1 gap-3.5">
+          <p class="col-span-2 lg:col-span-1 text-xs text-slate-400">Upload an image to create its dimensions.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="ipBtnAddH" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-700 text-white transition">+ Horizontal dim</button>
+          <button id="ipBtnAddV" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-700 text-white transition">+ Vertical dim</button>
+        </div>
+        <p class="text-[10px] text-slate-400 leading-snug -mt-2">Add a dimension, then click two points on the drawing (they snap to line vertices). Changing a value stretches only the part of the drawing between its two points; everything beyond shifts with it.</p>
+
+        <!-- Scale -->
+        <div class="p-3 rounded-xl bg-sky-50/70 border border-sky-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label for="ipScale" class="text-xs font-semibold text-sky-950">Image scale (mm per px)</label>
+            <input id="ipScale" type="number" step="any" min="0" value="1" style="user-select:text" class="w-24 bg-white border border-sky-300 rounded-lg px-2 py-1 text-xs font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="ipCalib" class="text-[11px] font-medium text-slate-700 shrink-0">Overall width =</label>
+            <input id="ipCalib" type="number" step="any" min="0" placeholder="mm" style="user-select:text" class="w-full bg-white border border-sky-300 rounded-lg px-2 py-1 text-xs font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+            <button id="ipBtnCalib" type="button" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">Set</button>
+          </div>
+          <p class="text-[11px] text-sky-800/80 leading-snug">Calibrate once so the drawing's real-world size matches your image, without distorting it.</p>
+        </div>
+
+        <!-- Clean-up tools -->
+        <div class="pt-2 border-t border-slate-200 space-y-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Clean-up</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="ipBtnErase" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition">Erase region</button>
+            <button id="ipBtnRestore" type="button" class="px-2 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition">Restore erased</button>
+          </div>
+          <p class="text-[10px] text-slate-400 leading-snug">Drag a box over printed numbers or old dimension marks in the image to remove them, then add your own labelled dimensions.</p>
+        </div>
+
+        <!-- Drafting + trace options -->
+        <div class="pt-2 border-t border-slate-200 space-y-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">CAD Drafting Options</h3>
+
+          <div class="flex items-center justify-between">
+            <label for="ipLineWeight" class="text-xs font-medium text-slate-700">CAD Line Weight</label>
+            <select id="ipLineWeight" class="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono-cad text-slate-800 focus:outline-none focus:border-sky-500">
+              <option value="1.5">0.25 mm (Fine)</option>
+              <option value="2.1" selected>0.35 mm (ISO Standard)</option>
+              <option value="2.8">0.50 mm (Bold V3)</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center text-[11px] font-medium text-slate-700 mb-1">
+              <span>Ink Threshold <button id="ipBtnAuto" type="button" class="ml-1 text-sky-600 hover:underline">Auto</button></span>
+              <span id="ipLblThr" class="font-mono-cad text-sky-800">175</span>
+            </div>
+            <input id="ipThr" type="range" min="40" max="245" value="175" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+              <span>Vector Precision (simplify)</span>
+              <span id="ipLblEps" class="font-mono-cad text-sky-800">0.60 px</span>
+            </div>
+            <input id="ipEps" type="range" min="0.2" max="2.5" step="0.05" value="0.6" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] font-medium text-slate-700 mb-1">
+              <span>Remove Specks (min length)</span>
+              <span id="ipLblMin" class="font-mono-cad text-sky-800">3 px</span>
+            </div>
+            <input id="ipMin" type="range" min="0" max="40" step="1" value="3" class="w-full accent-sky-600 cursor-pointer" />
+          </div>
+          <label class="flex items-center justify-between cursor-pointer py-0.5">
+            <span class="text-xs font-medium text-slate-700">Light lines on dark background</span>
+            <input id="ipInvert" type="checkbox" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4" />
+          </label>
+          <p id="ipStats" class="text-[10px] font-mono-cad text-slate-500">0 paths</p>
+          <p class="text-[10px] text-slate-400 leading-snug">Changing threshold, precision or speck settings re-traces the image and resets dimensions and erased regions.</p>
+          <p id="ipNote" class="hidden text-[10px] text-amber-700 leading-snug"></p>
+        </div>
+      </div>
+
+      <!-- Bottom export badge -->
+      <div class="p-4 bg-slate-50 border-t border-slate-200">
+        <div class="flex items-start gap-2.5">
+          <div class="mt-0.5 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div class="text-[11px] text-slate-600 leading-relaxed">
+            <span class="font-semibold text-slate-800">1:1 Millimeter CAD Output:</span> the header <strong class="text-slate-900">Export DWG / DXF / SVG</strong> buttons export this drawing, including its dimension arrows and labels, while this tab is open.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Canvas -->
+    <main id="ipViewport" class="flex-1 relative cad-grid-bg overflow-hidden cursor-grab" style="touch-action:none; min-height:240px">
+
+      <div class="absolute top-3 left-3 pointer-events-none flex flex-wrap items-center gap-2 z-10">
+        <div class="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-sm flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span class="text-[11px] font-mono-cad font-medium text-slate-700">IMAGE PARAMETRIC 2D &bull; UNITS: MM</span>
+        </div>
+        <div id="ipBadge" class="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-lg px-2.5 py-1 shadow-sm text-[11px] font-mono-cad text-slate-600">No image loaded</div>
+      </div>
+
+      <div id="ipHint" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none bg-slate-900 text-white text-xs font-medium px-3.5 py-2 rounded-xl shadow-lg border border-slate-700"></div>
+
+      <div id="ipEmpty" class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+        <div class="bg-white/95 border border-slate-200 rounded-2xl shadow-lg px-8 py-7 text-center max-w-xs">
+          <p class="text-sm font-semibold text-slate-800">Upload a JPEG or PNG drawing</p>
+          <p class="text-xs text-slate-500 mt-1">It becomes a parametric drawing with editable labelled dimensions.</p>
+          <button id="ipBtnEmpty" type="button" class="pointer-events-auto mt-4 inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg shadow-md transition">Choose image</button>
+        </div>
+      </div>
+
+      <div id="ipBusy" class="absolute inset-0 z-20 bg-white/60 items-center justify-center" style="display:none">
+        <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl shadow-lg px-4 py-3">
+          <div class="w-6 h-6 rounded-full border-4 border-sky-200 border-t-sky-600 animate-spin"></div>
+          <span class="text-xs font-medium text-slate-700">Building parametric drawing&hellip;</span>
+        </div>
+      </div>
+
+      <!-- Inline dimension editor (double-click a number on the canvas) -->
+      <div id="ipEditor" class="hidden absolute z-30 bg-white rounded-xl shadow-2xl border border-slate-300 p-3 w-56">
+        <label id="ipEditorLabel" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Edit Dimension</label>
+        <div class="flex items-center gap-1.5">
+          <input id="ipEditorInput" type="number" step="any" style="user-select:text" class="w-full border border-sky-500 rounded-lg px-2.5 py-1 text-sm font-mono-cad font-bold text-slate-900 focus:outline-none" />
+          <button id="ipEditorApply" type="button" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg">OK</button>
+        </div>
+      </div>
+
+      <div id="ipToast" class="pointer-events-none opacity-0 translate-y-2 transition-all duration-200 absolute bottom-4 right-4 z-30 bg-slate-900 text-white text-xs font-medium px-3.5 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <span id="ipToastText">Done</span>
+      </div>
+
+      <svg id="ipSvg" class="w-full h-full" viewBox="0 0 1320 980" xmlns="http://www.w3.org/2000/svg">
+        <g id="ipPanZoom">
+          <g id="ipRoot"></g>
+          <g id="ipOverlay"></g>
+        </g>
+      </svg>
+
+      <div class="absolute bottom-3 left-3 pointer-events-none hidden sm:flex items-center gap-2 text-[11px] text-slate-500 bg-white/85 backdrop-blur-sm px-2.5 py-1 rounded-md border border-slate-200/80">
+        <span>Scroll to Zoom &bull; Drag to Pan &bull; Double-Click Dimension to Edit</span>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /**
+     * 2D CAD Pedestal Basin Parametric Engine & Vector DXF/DWG Exporter
+     * Replicates TR363-V3 crisp black line technical drawing in 1:1 millimeter coordinates.
+     * Includes Self-Contained Client-Side JPEG Fine-Line Vector Replication Engine.
+     */
+
+    // --- State Management ---
+    const state = {
+      height: 840,      // Total height from floor to basin rim (mm)
+      depth: 480,       // Front-to-back projection from wall (mm)
+      width: 575,       // Left-to-right width in plan view (mm)
+      holeDist: 205,    // Tap hole centre to drain hole centre (mm)
+      lineWeight: 2.1,  // Stroke width in SVG units
+      showCrosshairs: false,
+      cleanCad: true,
+      showGrid: true,
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      // JPEG Replication Mode State
+      mode: 'parametric', // 'parametric' | 'jpeg_replica'
+      uploadedFileName: '',
+      uploadedImageData: null, // { width, height, gray: Float32Array }
+      traceThreshold: 175,
+      traceSmoothness: 0.65,
+      traceStroke: 1.35,
+      traceCenterline: true
+    };
+
+    // DOM Elements
+    const svgEl = document.getElementById('cadSvg');
+    const panZoomGroup = document.getElementById('panZoomGroup');
+    const cadDrawingRoot = document.getElementById('cadDrawingRoot');
+    const viewportContainer = document.getElementById('viewportContainer');
+
+    const inputHeight = document.getElementById('inputHeight');
+    const inputDepth = document.getElementById('inputDepth');
+    const inputWidth = document.getElementById('inputWidth');
+    const inputHoleDist = document.getElementById('inputHoleDist');
+    const selectLineWeight = document.getElementById('selectLineWeight');
+    const chkCrosshairs = document.getElementById('chkCrosshairs');
+    const chkCleanCad = document.getElementById('chkCleanCad');
+    const liveSummaryBadge = document.getElementById('liveSummaryBadge');
+    const viewModeBadgeText = document.getElementById('viewModeBadgeText');
+
+    // Store generated 1:1 millimeter CAD primitives for exact DWG/DXF export
+    let currentCadPrimitives = {
+      lines: [],       // { x1, y1, x2, y2, layer }
+      circles: [],     // { cx, cy, r, layer }
+      arcs: [],        // { cx, cy, r, startAngle, endAngle, layer } (degrees CCW from +X)
+      polylines: [],   // { points: [{x, y}], closed: bool, layer }
+      solids: [],      // { points: [{x, y}, {x, y}, {x, y}], layer } (filled arrowheads)
+      texts: []        // { x, y, height, text, rotation, layer, hAlign, vAlign }
+    };
+
+    // --- Helper: SVG Element Builder ---
+    function createSvgEl(tag, attrs = {}) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, v);
+      }
+      return el;
+    }
+
+    // --- Helper: Convert CAD World Coordinates (Y-up in mm) to SVG Viewport Coordinates (Y-down) ---
+    // Origin (0,0) in CAD world = Intersection of Wall face (X=0) and Floor line (Y=0)
+    const ORIGIN_SVG_X = 230;
+    const ORIGIN_SVG_Y = 890;
+
+    function toSvgX(cadX) {
+      return ORIGIN_SVG_X + cadX;
+    }
+    function toSvgY(cadY) {
+      return ORIGIN_SVG_Y - cadY;
+    }
+
+    // --- Primitive Recording Helpers (simultaneously draws to SVG & records 1:1 mm CAD entities) ---
+    function addLine(parent, x1, y1, x2, y2, layer = 'GEOMETRY', strokeWidth = state.lineWeight) {
+      currentCadPrimitives.lines.push({ x1, y1, x2, y2, layer });
+      const line = createSvgEl('line', {
+        x1: toSvgX(x1).toFixed(2),
+        y1: toSvgY(y1).toFixed(2),
+        x2: toSvgX(x2).toFixed(2),
+        y2: toSvgY(y2).toFixed(2),
+        stroke: '#000000',
+        'stroke-width': strokeWidth,
+        'stroke-linecap': 'round'
+      });
+      parent.appendChild(line);
+      return line;
+    }
+
+    function addCircle(parent, cx, cy, r, layer = 'GEOMETRY', strokeWidth = state.lineWeight) {
+      currentCadPrimitives.circles.push({ cx, cy, r, layer });
+      const circle = createSvgEl('circle', {
+        cx: toSvgX(cx).toFixed(2),
+        cy: toSvgY(cy).toFixed(2),
+        r: r.toFixed(2),
+        fill: 'none',
+        stroke: '#000000',
+        'stroke-width': strokeWidth
+      });
+      parent.appendChild(circle);
+      return circle;
+    }
+
+    function addPolyline(parent, points, closed = false, layer = 'GEOMETRY', strokeWidth = state.lineWeight) {
+      currentCadPrimitives.polylines.push({ points, closed, layer });
+      const ptsStr = points.map(p => `${toSvgX(p.x).toFixed(2)},${toSvgY(p.y).toFixed(2)}`).join(' ');
+      const el = createSvgEl(closed ? 'polygon' : 'polyline', {
+        points: ptsStr,
+        fill: 'none',
+        stroke: '#000000',
+        'stroke-width': strokeWidth,
+        'stroke-linejoin': 'round',
+        'stroke-linecap': 'round'
+      });
+      parent.appendChild(el);
+      return el;
+    }
+
+    /**
+     * Draws an ISO/Architectural filled CAD arrowhead at tip (tx, ty) pointing in direction angleRad (in CAD Y-up space)
+     */
+    function addArrowHead(parent, tx, ty, angleRad, length = 24, width = 7.5, layer = 'DIMENSIONS') {
+      const cos = Math.cos(angleRad);
+      const sin = Math.sin(angleRad);
+      // Base center behind tip
+      const bx = tx - length * cos;
+      const by = ty - length * sin;
+      // Perpendicular offsets
+      const px = -sin * (width / 2);
+      const py = cos * (width / 2);
+
+      const p1 = { x: tx, y: ty };
+      const p2 = { x: bx + px, y: by + py };
+      const p3 = { x: bx - px, y: by - py };
+
+      currentCadPrimitives.solids.push({ points: [p1, p2, p3], layer });
+
+      const poly = createSvgEl('polygon', {
+        points: `${toSvgX(p1.x).toFixed(2)},${toSvgY(p1.y).toFixed(2)} ${toSvgX(p2.x).toFixed(2)},${toSvgY(p2.y).toFixed(2)} ${toSvgX(p3.x).toFixed(2)},${toSvgY(p3.y).toFixed(2)}`,
+        fill: '#000000',
+        stroke: 'none'
+      });
+      parent.appendChild(poly);
+    }
+
+    /**
+     * Adds an interactive dimension text label in SVG & records TEXT entity for DWG/DXF
+     */
+    function addDimensionText(parent, x, y, textStr, rotationDeg = 0, dimKey = null) {
+      // In CAD (Y-up), vertical text rotated 90 deg reads bottom-to-top
+      currentCadPrimitives.texts.push({
+        x,
+        y,
+        height: 34,
+        text: String(textStr),
+        rotation: rotationDeg,
+        layer: 'DIMENSIONS'
+      });
+
+      const group = createSvgEl('g', {
+        class: dimKey ? 'dim-interactive' : ''
+      });
+
+      const svgX = toSvgX(x);
+      const svgY = toSvgY(y);
+
+      if (dimKey) {
+        const hitW = rotationDeg === 0 ? 84 : 44;
+        const hitH = rotationDeg === 0 ? 44 : 84;
+        const hitRect = createSvgEl('rect', {
+          x: (svgX - hitW / 2).toFixed(2),
+          y: (svgY - hitH / 2).toFixed(2),
+          width: hitW,
+          height: hitH,
+          rx: 6,
+          fill: 'transparent',
+          stroke: 'transparent',
+          'stroke-width': '1.5',
+          class: 'dim-hit-box'
+        });
+        group.appendChild(hitRect);
+
+        group.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          openInlineEditor(dimKey, svgX, svgY);
+        });
+      }
+
+      // SVG rotation is CW, CAD rotation is CCW
+      const svgRot = -rotationDeg;
+      const textEl = createSvgEl('text', {
+        x: svgX.toFixed(2),
+        y: svgY.toFixed(2),
+        fill: '#000000',
+        'font-family': 'Inter, Arial, sans-serif',
+        'font-size': '38px',
+        'font-weight': '400',
+        'text-anchor': 'middle',
+        'dominant-baseline': 'central',
+        transform: rotationDeg !== 0 ? `rotate(${svgRot} ${svgX.toFixed(2)} ${svgY.toFixed(2)})` : ''
+      });
+      textEl.textContent = String(textStr);
+      group.appendChild(textEl);
+      parent.appendChild(group);
+    }
+
+    // --- Parametric Geometry Generator ---
+    function renderDrawing() {
+      if (state.mode === 'jpeg_replica' && state.uploadedImageData) {
+        renderReplicatedJpegDrawing();
+        return;
+      }
+
+      viewModeBadgeText.textContent = 'ORTHOGRAPHIC 2D • UNITS: MM';
+
+      // Clear previous SVG & primitive records
+      cadDrawingRoot.innerHTML = '';
+      currentCadPrimitives = {
+        lines: [],
+        circles: [],
+        arcs: [],
+        polylines: [],
+        solids: [],
+        texts: []
+      };
+
+      const H = state.height;       // Default 840
+      const D = state.depth;        // Default 480
+      const W = state.width;        // Default 575
+      const C = state.holeDist;     // Default 205
+      const lw = state.lineWeight;
+      const hatchLw = Math.max(1.2, lw * 0.72);
+
+      // Update summary badge
+      liveSummaryBadge.textContent = `${W} × ${D} × ${H} mm | C: ${C} mm`;
+
+      // =========================================================================
+      // 1. SIDE ELEVATION VIEW (Left Side, Wall at X = 0, Floor at Y = 0)
+      // =========================================================================
+      const sideGroup = createSvgEl('g', { id: 'side-elevation' });
+      cadDrawingRoot.appendChild(sideGroup);
+
+      // Wall vertical reference line (extends below floor and above basin rim)
+      const wallTopY = H + 190;
+      const wallBottomY = -110;
+      addLine(sideGroup, 0, wallBottomY, 0, wallTopY, 'GEOMETRY', lw);
+
+      // Floor horizontal reference line
+      const floorLeftX = -165;
+      const floorRightX = D + 115;
+      addLine(sideGroup, floorLeftX, 0, floorRightX, 0, 'GEOMETRY', lw);
+
+      // Wall diagonal hatching along X = 0 (pointing down-left at 45 deg)
+      const hatchStep = 18;
+      const hatchLen = 22;
+      const hatchDx = -hatchLen * Math.cos(Math.PI / 4);
+      const hatchDy = -hatchLen * Math.sin(Math.PI / 4);
+      for (let hy = 12; hy <= wallTopY - 14; hy += hatchStep) {
+        addLine(sideGroup, 0, hy, hatchDx, hy + hatchDy, 'HATCH', hatchLw);
+      }
+
+      // Floor diagonal hatching along Y = 0 (pointing down-left at 45 deg)
+      for (let hx = 24; hx <= floorRightX - 18; hx += hatchStep) {
+        addLine(sideGroup, hx, 0, hx + hatchDx, hatchDy, 'HATCH', hatchLw);
+      }
+
+      // Basin Side Profile Geometry
+      const rimThickness = 40;
+      const bowlDepth = 165;
+      const totalBasinHeight = rimThickness + bowlDepth; // 205mm
+      const basinBottomY = H - totalBasinHeight;
+      const rimStepY = H - rimThickness;
+
+      // Pedestal column dimensions (proportionally anchored between wall and front)
+      const pedLeftX = Math.round(D * 0.285);   // ~137mm from wall
+      const pedRightX = Math.round(D * 0.625);  // ~300mm from wall
+
+      // Pedestal vertical lines (from Y=0 floor to Y=basinBottomY)
+      addLine(sideGroup, pedLeftX, 0, pedLeftX, basinBottomY, 'GEOMETRY', lw);
+      addLine(sideGroup, pedRightX, 0, pedRightX, basinBottomY, 'GEOMETRY', lw);
+
+      // Basin top rim horizontal line
+      const rimCornerR = 8;
+      addLine(sideGroup, 0, H, D - rimCornerR, H, 'GEOMETRY', lw);
+
+      // Basin rim under-step horizontal line
+      addLine(sideGroup, 0, rimStepY, D - 4, rimStepY, 'GEOMETRY', lw);
+
+      // Basin bottom flat shelf from wall to pedestal front
+      const curveStartX = pedRightX + 10;
+      addLine(sideGroup, 0, basinBottomY, curveStartX, basinBottomY, 'GEOMETRY', lw);
+
+      // Rounded front lip & smooth underside bowl curve (approximated cleanly as high-res polyline for both SVG & DWG/DXF)
+      const sideCurvePts = [];
+      // Top-right rounded nose of rim
+      const noseSteps = 8;
+      for (let i = 0; i <= noseSteps; i++) {
+        const ang = (Math.PI / 2) * (1 - i / noseSteps); // 90 deg down to 0 deg
+        sideCurvePts.push({
+          x: (D - rimCornerR) + rimCornerR * Math.cos(ang),
+          y: (H - rimCornerR) + rimCornerR * Math.sin(ang)
+        });
+      }
+      // Vertical short lip edge down to rimStepY
+      sideCurvePts.push({ x: D, y: rimStepY + 4 });
+      sideCurvePts.push({ x: D - 4, y: rimStepY });
+
+      // Smooth parabolic/cubic bowl belly curve from (D - 4, rimStepY) down to (curveStartX, basinBottomY)
+      const bowlSteps = 28;
+      const p0 = { x: D - 4, y: rimStepY };
+      const p1 = { x: D - 28, y: rimStepY - bowlDepth * 0.52 };
+      const p2 = { x: curveStartX + (D - curveStartX) * 0.42, y: basinBottomY };
+      const p3 = { x: curveStartX, y: basinBottomY };
+
+      for (let i = 1; i <= bowlSteps; i++) {
+        const t = i / bowlSteps;
+        const mt = 1 - t;
+        const bx = mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x;
+        const by = mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y;
+        sideCurvePts.push({ x: bx, y: by });
+      }
+      addPolyline(sideGroup, sideCurvePts, false, 'GEOMETRY', lw);
+
+      // --- Dimension 1: Total Height (840) on Left ---
+      const dimHeightX = -75;
+      // Top extension line from wall (X=0, Y=H) to left
+      addLine(sideGroup, 0, H, dimHeightX - 35, H, 'DIMENSIONS', hatchLw);
+      // Bottom extension line already formed by floor line extending left to floorLeftX (-165)
+
+      // Vertical dimension segments with gap for text
+      const midHeightY = H / 2;
+      const textGapH = 54;
+      addLine(sideGroup, dimHeightX, H - 6, dimHeightX, midHeightY + textGapH, 'DIMENSIONS', hatchLw);
+      addLine(sideGroup, dimHeightX, midHeightY - textGapH, dimHeightX, 6, 'DIMENSIONS', hatchLw);
+
+      // Top & bottom arrows
+      addArrowHead(sideGroup, dimHeightX, H, Math.PI / 2, 24, 7.5);
+      addArrowHead(sideGroup, dimHeightX, 0, -Math.PI / 2, 24, 7.5);
+
+      // Height dimension text
+      addDimensionText(sideGroup, dimHeightX - 42, midHeightY, H, 0, 'height');
+
+      // --- Dimension 2: Basin Depth / Projection (480) Above Side Elevation ---
+      const dimDepthY = H + 130;
+      // Right vertical extension line above front edge (X=D)
+      addLine(sideGroup, D, H + 18, D, dimDepthY + 38, 'DIMENSIONS', hatchLw);
+      // Left extension line is the wall line itself (already goes up to wallTopY = H + 190)
+
+      const midDepthX = D / 2;
+      const textGapD = 54;
+      addLine(sideGroup, 6, dimDepthY, midDepthX - textGapD, dimDepthY, 'DIMENSIONS', hatchLw);
+      addLine(sideGroup, midDepthX + textGapD, dimDepthY, D - 6, dimDepthY, 'DIMENSIONS', hatchLw);
+
+      // Left & right arrows
+      addArrowHead(sideGroup, 0, dimDepthY, Math.PI, 24, 7.5);
+      addArrowHead(sideGroup, D, dimDepthY, 0, 24, 7.5);
+
+      // Depth dimension text
+      addDimensionText(sideGroup, midDepthX, dimDepthY, D, 0, 'depth');
+
+
+      // =========================================================================
+      // 2. TOP PLAN VIEW (Positioned to the Right of Side Elevation)
+      // =========================================================================
+      const planGroup = createSvgEl('g', { id: 'top-plan-view' });
+      cadDrawingRoot.appendChild(planGroup);
+
+      // Position Top Plan View nicely aligned horizontally with the basin upper zone
+      const planLeftX = D + 260;
+      const planRightX = planLeftX + W;
+      const planCenterX = planLeftX + W / 2;
+      const planBackY = H - 150; // Top edge of plan view (back wall edge of basin)
+
+      // Plan Depth matches D (480), clamped gently if C is large so drain stays inside bowl
+      const effectivePlanDepth = Math.max(D, C + 165);
+      const planFrontY = planBackY - effectivePlanDepth;
+
+      // Outer basin perimeter in plan view: flat back edge, straight sides transitioning into large rounded front corners
+      const outerCornerR = Math.min(135, W * 0.24, effectivePlanDepth * 0.48);
+      const outerPts = [];
+      // Start top-left (back-left)
+      outerPts.push({ x: planLeftX, y: planBackY });
+      // Top-right (back-right)
+      outerPts.push({ x: planRightX, y: planBackY });
+      // Down right side to start of front-right arc
+      outerPts.push({ x: planRightX, y: planFrontY + outerCornerR });
+
+      // Front-right quarter arc (0 deg down to -90 deg)
+      const arcSegs = 20;
+      for (let i = 1; i <= arcSegs; i++) {
+        const a = -(Math.PI / 2) * (i / arcSegs);
+        outerPts.push({
+          x: (planRightX - outerCornerR) + outerCornerR * Math.cos(a),
+          y: (planFrontY + outerCornerR) + outerCornerR * Math.sin(a)
+        });
+      }
+      // Bottom front straight segment to start of front-left arc
+      outerPts.push({ x: planLeftX + outerCornerR, y: planFrontY });
+
+      // Front-left quarter arc (-90 deg to -180 deg)
+      for (let i = 1; i <= arcSegs; i++) {
+        const a = -Math.PI / 2 - (Math.PI / 2) * (i / arcSegs);
+        outerPts.push({
+          x: (planLeftX + outerCornerR) + outerCornerR * Math.cos(a),
+          y: (planFrontY + outerCornerR) + outerCornerR * Math.sin(a)
+        });
+      }
+      // Close back to top-left
+      addPolyline(planGroup, outerPts, true, 'GEOMETRY', lw);
+
+      // Rear back-rim ledge line
+      const backRimOffset = 22;
+      const ledgeLineY = planBackY - backRimOffset;
+      addLine(planGroup, planLeftX, ledgeLineY, planRightX, ledgeLineY, 'GEOMETRY', lw);
+
+      // Center Tap Deck Bay (rectangular recess between ledgeLineY and tapDeckBottomY)
+      const tapDeckHeight = 82;
+      const tapDeckBottomY = ledgeLineY - tapDeckHeight;
+      const tapBayHalfW = Math.min(126, W * 0.22);
+      const bayLeftX = planCenterX - tapBayHalfW;
+      const bayRightX = planCenterX + tapBayHalfW;
+
+      // Left vertical divider of tap bay
+      addLine(planGroup, bayLeftX, ledgeLineY, bayLeftX, tapDeckBottomY, 'GEOMETRY', lw);
+      // Right vertical divider of tap bay
+      addLine(planGroup, bayRightX, ledgeLineY, bayRightX, tapDeckBottomY, 'GEOMETRY', lw);
+      // Horizontal bottom edge of tap bay
+      addLine(planGroup, bayLeftX, tapDeckBottomY, bayRightX, tapDeckBottomY, 'GEOMETRY', lw);
+
+      // Inner Basin Bowl Outline (chamfered/angled shoulders at rear + rounded front basin wall)
+      const sideWallMargin = 54;
+      const frontWallMargin = 48;
+      const innerLeftX = planLeftX + sideWallMargin;
+      const innerRightX = planRightX - sideWallMargin;
+      const innerFrontY = planFrontY + frontWallMargin;
+      const innerShoulderY = tapDeckBottomY - 62;
+      const innerCornerR = Math.max(45, outerCornerR - 46);
+
+      const innerPts = [];
+      // Start at tap bay bottom-left corner
+      innerPts.push({ x: bayLeftX, y: tapDeckBottomY });
+      // Angled shoulder down-left to innerLeftX
+      innerPts.push({ x: innerLeftX, y: innerShoulderY });
+      // Down inner left wall to front-left fillet start
+      innerPts.push({ x: innerLeftX, y: innerFrontY + innerCornerR });
+
+      // Front-left inner fillet (-180 deg to -90 deg)
+      for (let i = 1; i <= 16; i++) {
+        const a = -Math.PI + (Math.PI / 2) * (i / 16);
+        innerPts.push({
+          x: (innerLeftX + innerCornerR) + innerCornerR * Math.cos(a),
+          y: (innerFrontY + innerCornerR) + innerCornerR * Math.sin(a)
+        });
+      }
+      // Front inner straight line
+      innerPts.push({ x: innerRightX - innerCornerR, y: innerFrontY });
+
+      // Front-right inner fillet (-90 deg to 0 deg)
+      for (let i = 1; i <= 16; i++) {
+        const a = -Math.PI / 2 + (Math.PI / 2) * (i / 16);
+        innerPts.push({
+          x: (innerRightX - innerCornerR) + innerCornerR * Math.cos(a),
+          y: (innerFrontY + innerCornerR) + innerCornerR * Math.sin(a)
+        });
+      }
+      // Up inner right wall to shoulder
+      innerPts.push({ x: innerRightX, y: innerShoulderY });
+      // Angled shoulder up-left back to tap bay bottom-right corner
+      innerPts.push({ x: bayRightX, y: tapDeckBottomY });
+      addPolyline(planGroup, innerPts, false, 'GEOMETRY', lw);
+
+      // --- Tap Open Hole Circle & Basin Drainage Hole Circle ---
+      const tapHoleY = ledgeLineY - tapDeckHeight / 2;
+      const tapHoleR = 17.5;
+      addCircle(planGroup, planCenterX, tapHoleY, tapHoleR, 'GEOMETRY', lw);
+
+      // Drainage hole centre positioned strictly at distance C below tapHoleY
+      const drainHoleY = tapHoleY - C;
+      const drainHoleR = 22.5;
+      addCircle(planGroup, planCenterX, drainHoleY, drainHoleR, 'GEOMETRY', lw);
+
+      // Optional CAD Centerline Crosshairs on both holes
+      if (state.showCrosshairs) {
+        const chTap = tapHoleR + 10;
+        addLine(planGroup, planCenterX - chTap, tapHoleY, planCenterX + chTap, tapHoleY, 'CENTERLINES', 1.1);
+        addLine(planGroup, planCenterX, tapHoleY - chTap, planCenterX, tapHoleY + chTap, 'CENTERLINES', 1.1);
+
+        const chDrain = drainHoleR + 10;
+        addLine(planGroup, planCenterX - chDrain, drainHoleY, planCenterX + chDrain, drainHoleY, 'CENTERLINES', 1.1);
+        addLine(planGroup, planCenterX, drainHoleY - chDrain, planCenterX, drainHoleY + chDrain, 'CENTERLINES', 1.1);
+      }
+
+      // --- Dimension 3: Overall Width (575) Above Top Plan View ---
+      const dimWidthY = planBackY + 105;
+      // Left & right vertical extension lines
+      addLine(planGroup, planLeftX, planBackY + 18, planLeftX, dimWidthY + 38, 'DIMENSIONS', hatchLw);
+      addLine(planGroup, planRightX, planBackY + 18, planRightX, dimWidthY + 38, 'DIMENSIONS', hatchLw);
+
+      const textGapW = 54;
+      addLine(planGroup, planLeftX + 6, dimWidthY, planCenterX - textGapW, dimWidthY, 'DIMENSIONS', hatchLw);
+      addLine(planGroup, planCenterX + textGapW, dimWidthY, planRightX - 6, dimWidthY, 'DIMENSIONS', hatchLw);
+
+      addArrowHead(planGroup, planLeftX, dimWidthY, Math.PI, 24, 7.5);
+      addArrowHead(planGroup, planRightX, dimWidthY, 0, 24, 7.5);
+
+      addDimensionText(planGroup, planCenterX, dimWidthY, W, 0, 'width');
+
+      // --- Dimension 4: Tap-to-Drain Hole Centre Distance (205) on Right of Plan View ---
+      const dimHoleX = planRightX + 125;
+      const extEndX = dimHoleX + 36;
+
+      if (state.cleanCad) {
+        // Clean Architectural CAD Mode:
+        // Upper horizontal extension line runs directly from tap hole centre (planCenterX, tapHoleY) to extEndX
+        addLine(planGroup, planCenterX, tapHoleY, extEndX, tapHoleY, 'DIMENSIONS', hatchLw);
+        // Lower horizontal extension line runs directly from drain hole centre (planCenterX, drainHoleY) to extEndX
+        addLine(planGroup, planCenterX, drainHoleY, extEndX, drainHoleY, 'DIMENSIONS', hatchLw);
+
+        // External vertical arrows pointing inward to the two extension lines (matching V3 external arrow style)
+        const arrowShaftLen = 68;
+        addLine(planGroup, dimHoleX, tapHoleY + arrowShaftLen, dimHoleX, tapHoleY + 6, 'DIMENSIONS', hatchLw);
+        addArrowHead(planGroup, dimHoleX, tapHoleY, -Math.PI / 2, 24, 7.5);
+
+        addLine(planGroup, dimHoleX, drainHoleY - arrowShaftLen, dimHoleX, drainHoleY - 6, 'DIMENSIONS', hatchLw);
+        addArrowHead(planGroup, dimHoleX, drainHoleY, Math.PI / 2, 24, 7.5);
+
+        // Vertical rotated dimension label centered neatly between tapHoleY and drainHoleY
+        const midHoleY = (tapHoleY + drainHoleY) / 2;
+        addDimensionText(planGroup, dimHoleX, midHoleY, C, 90, 'holeDist');
+      } else {
+        // Strict V3 Visual Overlay Mode (preserves back-edge reference line + tap-centre leader)
+        addLine(planGroup, planRightX + 18, planBackY, extEndX, planBackY, 'DIMENSIONS', hatchLw);
+        addLine(planGroup, planCenterX, tapHoleY, dimHoleX - 52, tapHoleY, 'DIMENSIONS', hatchLw);
+        addLine(planGroup, planCenterX, drainHoleY, extEndX, drainHoleY, 'DIMENSIONS', hatchLw);
+
+        const arrowShaftLen = 68;
+        addLine(planGroup, dimHoleX, planBackY + arrowShaftLen, dimHoleX, planBackY + 6, 'DIMENSIONS', hatchLw);
+        addArrowHead(planGroup, dimHoleX, planBackY, -Math.PI / 2, 24, 7.5);
+
+        addLine(planGroup, dimHoleX, drainHoleY - arrowShaftLen, dimHoleX, drainHoleY - 6, 'DIMENSIONS', hatchLw);
+        addArrowHead(planGroup, dimHoleX, drainHoleY, Math.PI / 2, 24, 7.5);
+
+        const midLabelY = (planBackY + drainHoleY) / 2 - 12;
+        addDimensionText(planGroup, dimHoleX, midLabelY, C, 90, 'holeDist');
+      }
+
+      // Auto-adjust viewBox bounds slightly if extreme dimensions are entered
+      const totalContentW = planRightX + 260;
+      const viewW = Math.max(1320, totalContentW + 140);
+      const viewH = Math.max(980, H + 260);
+      svgEl.setAttribute('viewBox', `0 0 ${viewW} ${viewH}`);
+    }
+
+    // =========================================================================
+    // SELF-CONTAINED CLIENT-SIDE JPEG FINE-LINE VECTOR REPLICATION ENGINE
+    // =========================================================================
+
+    // Douglas-Peucker polyline simplification for clean, razor-sharp CAD vectors
+    function simplifyPoints(pts, epsilon) {
+      if (pts.length <= 2) return pts;
+      let maxDist = 0;
+      let index = 0;
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      const dx = last.x - first.x;
+      const dy = last.y - first.y;
+      const lenSq = dx * dx + dy * dy;
+
+      for (let i = 1; i < pts.length - 1; i++) {
+        let dist;
+        if (lenSq === 0) {
+          dist = Math.hypot(pts[i].x - first.x, pts[i].y - first.y);
+        } else {
+          const t = ((pts[i].x - first.x) * dx + (pts[i].y - first.y) * dy) / lenSq;
+          const projX = first.x + t * dx;
+          const projY = first.y + t * dy;
+          dist = Math.hypot(pts[i].x - projX, pts[i].y - projY);
+        }
+        if (dist > maxDist) {
+          maxDist = dist;
+          index = i;
+        }
+      }
+
+      if (maxDist > epsilon) {
+        const left = simplifyPoints(pts.slice(0, index + 1), epsilon);
+        const right = simplifyPoints(pts.slice(index), epsilon);
+        return left.slice(0, -1).concat(right);
+      } else {
+        return [first, last];
+      }
+    }
+
+    // Zhang-Suen Morphological Thinning (Skeletonization) for exact 1-pixel centerline CAD extraction
+    function zhangSuenThinning(binary, w, h) {
+      const img = new Uint8Array(binary);
+      const markers = new Uint8Array(w * h);
+      let changed = true;
+      let iter = 0;
+      const maxIter = 28;
+
+      while (changed && iter < maxIter) {
+        changed = false;
+        iter++;
+
+        // Step 1
+        markers.fill(0);
+        for (let y = 1; y < h - 1; y++) {
+          const row = y * w;
+          for (let x = 1; x < w - 1; x++) {
+            const idx = row + x;
+            if (img[idx] === 0) continue;
+
+            const p2 = img[idx - w];
+            const p3 = img[idx - w + 1];
+            const p4 = img[idx + 1];
+            const p5 = img[idx + w + 1];
+            const p6 = img[idx + w];
+            const p7 = img[idx + w - 1];
+            const p8 = img[idx - 1];
+            const p9 = img[idx - w - 1];
+
+            const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+            if (B < 2 || B > 6) continue;
+
+            const A =
+              (p2 === 0 && p3 === 1 ? 1 : 0) +
+              (p3 === 0 && p4 === 1 ? 1 : 0) +
+              (p4 === 0 && p5 === 1 ? 1 : 0) +
+              (p5 === 0 && p6 === 1 ? 1 : 0) +
+              (p6 === 0 && p7 === 1 ? 1 : 0) +
+              (p7 === 0 && p8 === 1 ? 1 : 0) +
+              (p8 === 0 && p9 === 1 ? 1 : 0) +
+              (p9 === 0 && p2 === 1 ? 1 : 0);
+
+            if (A === 1 && (p2 * p4 * p6 === 0) && (p4 * p6 * p8 === 0)) {
+              markers[idx] = 1;
+              changed = true;
+            }
+          }
+        }
+        for (let i = 0; i < img.length; i++) {
+          if (markers[i]) img[i] = 0;
+        }
+
+        // Step 2
+        markers.fill(0);
+        for (let y = 1; y < h - 1; y++) {
+          const row = y * w;
+          for (let x = 1; x < w - 1; x++) {
+            const idx = row + x;
+            if (img[idx] === 0) continue;
+
+            const p2 = img[idx - w];
+            const p3 = img[idx - w + 1];
+            const p4 = img[idx + 1];
+            const p5 = img[idx + w + 1];
+            const p6 = img[idx + w];
+            const p7 = img[idx + w - 1];
+            const p8 = img[idx - 1];
+            const p9 = img[idx - w - 1];
+
+            const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+            if (B < 2 || B > 6) continue;
+
+            const A =
+              (p2 === 0 && p3 === 1 ? 1 : 0) +
+              (p3 === 0 && p4 === 1 ? 1 : 0) +
+              (p4 === 0 && p5 === 1 ? 1 : 0) +
+              (p5 === 0 && p6 === 1 ? 1 : 0) +
+              (p6 === 0 && p7 === 1 ? 1 : 0) +
+              (p7 === 0 && p8 === 1 ? 1 : 0) +
+              (p8 === 0 && p9 === 1 ? 1 : 0) +
+              (p9 === 0 && p2 === 1 ? 1 : 0);
+
+            if (A === 1 && (p2 * p4 * p8 === 0) && (p2 * p6 * p8 === 0)) {
+              markers[idx] = 1;
+              changed = true;
+            }
+          }
+        }
+        for (let i = 0; i < img.length; i++) {
+          if (markers[i]) img[i] = 0;
+        }
+      }
+
+      return img;
+    }
+
+    // Trace 8-connected skeleton pixels into ordered vector polylines
+    function traceSkeletonPolylines(skel, w, h) {
+      const visited = new Uint8Array(w * h);
+      const polylines = [];
+      // Prioritize orthogonal neighbors first, then diagonals for clean CAD corners
+      const dirs = [
+        [1, 0], [0, 1], [-1, 0], [0, -1],
+        [1, 1], [-1, 1], [-1, -1], [1, -1]
+      ];
+
+      function countNeighbors(x, y) {
+        let c = 0;
+        for (const [dx, dy] of dirs) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < w && ny >= 0 && ny < h && skel[ny * w + nx]) c++;
+        }
+        return c;
+      }
+
+      function traceFrom(startX, startY) {
+        const path = [{ x: startX, y: startY }];
+        visited[startY * w + startX] = 1;
+        let cx = startX;
+        let cy = startY;
+
+        while (true) {
+          let nextPt = null;
+          for (const [dx, dy] of dirs) {
+            const nx = cx + dx;
+            const ny = cy + dy;
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const nIdx = ny * w + nx;
+              if (skel[nIdx] && !visited[nIdx]) {
+                nextPt = { x: nx, y: ny, idx: nIdx };
+                break;
+              }
+            }
+          }
+          if (!nextPt) break;
+          visited[nextPt.idx] = 1;
+          path.push({ x: nextPt.x, y: nextPt.y });
+          cx = nextPt.x;
+          cy = nextPt.y;
+        }
+        return path;
+      }
+
+      // Pass 1: Start from endpoints (1 neighbor) or junctions (>=3 neighbors) for clean line segments
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const idx = y * w + x;
+          if (skel[idx] && !visited[idx]) {
+            const n = countNeighbors(x, y);
+            if (n !== 2) {
+              const poly = traceFrom(x, y);
+              if (poly.length >= 2) polylines.push(poly);
+            }
+          }
+        }
+      }
+
+      // Pass 2: Trace remaining closed loops (circles, ovals, closed rectangles)
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const idx = y * w + x;
+          if (skel[idx] && !visited[idx]) {
+            const poly = traceFrom(x, y);
+            if (poly.length >= 3) {
+              // Close loop if end is adjacent to start
+              const first = poly[0];
+              const last = poly[poly.length - 1];
+              if (Math.abs(first.x - last.x) <= 2 && Math.abs(first.y - last.y) <= 2) {
+                poly.push({ x: first.x, y: first.y });
+              }
+              polylines.push(poly);
+            }
+          }
+        }
+      }
+
+      return polylines;
+    }
+
+    // Marching-squares boundary contour tracer for outline mode
+    function traceBoundaryContours(binary, w, h) {
+      const visitedEdge = new Uint8Array(w * h);
+      const polylines = [];
+      const dirs = [
+        [1, 0], [1, 1], [0, 1], [-1, 1],
+        [-1, 0], [-1, -1], [0, -1], [1, -1]
+      ];
+
+      const isEdge = (x, y) => {
+        if (x <= 0 || x >= w - 1 || y <= 0 || y >= h - 1) return false;
+        const idx = y * w + x;
+        if (!binary[idx]) return false;
+        return !binary[idx - 1] || !binary[idx + 1] || !binary[idx - w] || !binary[idx + w];
+      };
+
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const idx = y * w + x;
+          if (!visitedEdge[idx] && isEdge(x, y)) {
+            const path = [{ x, y }];
+            visitedEdge[idx] = 1;
+            let cx = x, cy = y;
+            while (true) {
+              let moved = false;
+              for (const [dx, dy] of dirs) {
+                const nx = cx + dx;
+                const ny = cy + dy;
+                const nIdx = ny * w + nx;
+                if (!visitedEdge[nIdx] && isEdge(nx, ny)) {
+                  visitedEdge[nIdx] = 1;
+                  path.push({ x: nx, y: ny });
+                  cx = nx;
+                  cy = ny;
+                  moved = true;
+                  break;
+                }
+              }
+              if (!moved) break;
+            }
+            if (path.length >= 4) {
+              const first = path[0];
+              const last = path[path.length - 1];
+              if (Math.abs(first.x - last.x) <= 2 && Math.abs(first.y - last.y) <= 2) {
+                path.push({ x: first.x, y: first.y });
+              }
+              polylines.push(path);
+            }
+          }
+        }
+      }
+      return polylines;
+    }
+
+    // Replicate uploaded JPEG into crisp fine black vector lines inside the CAD viewport & DWG/DXF buffer
+    function renderReplicatedJpegDrawing() {
+      const imgData = state.uploadedImageData;
+      if (!imgData) return;
+
+      const { width: w, height: h, gray } = imgData;
+      const thresh = state.traceThreshold;
+      const epsilon = state.traceSmoothness;
+      const strokeW = state.traceStroke;
+
+      // Adaptive local contrast + global threshold for sharp technical drawing extraction
+      const binary = new Uint8Array(w * h);
+      for (let y = 1; y < h - 1; y++) {
+        const row = y * w;
+        for (let x = 1; x < w - 1; x++) {
+          const idx = row + x;
+          const val = gray[idx];
+          // 3x3 local average for handling JPEG compression noise & uneven scan lighting
+          const localAvg = (
+            gray[idx - w - 1] + gray[idx - w] + gray[idx - w + 1] +
+            gray[idx - 1] + val + gray[idx + 1] +
+            gray[idx + w - 1] + gray[idx + w] + gray[idx + w + 1]
+          ) / 9;
+          if (val < thresh && (val < localAvg - 6 || val < thresh * 0.72)) {
+            binary[idx] = 1;
+          }
+        }
+      }
+
+      // Extract either 1px centerline skeleton or crisp boundary outlines
+      const rawPolys = state.traceCenterline
+        ? traceSkeletonPolylines(zhangSuenThinning(binary, w, h), w, h)
+        : traceBoundaryContours(binary, w, h);
+
+      // Clear previous SVG & CAD primitives
+      cadDrawingRoot.innerHTML = '';
+      currentCadPrimitives = {
+        lines: [],
+        circles: [],
+        arcs: [],
+        polylines: [],
+        solids: [],
+        texts: []
+      };
+
+      const replicaGroup = createSvgEl('g', { id: 'jpeg-replicated-vector-layer' });
+      cadDrawingRoot.appendChild(replicaGroup);
+
+      // Fit replicated drawing nicely centered in the 1320 x 980 CAD workspace
+      const targetMaxW = 1140;
+      const targetMaxH = 840;
+      const scale = Math.min(targetMaxW / w, targetMaxH / h);
+      const renderedW = w * scale;
+      const renderedH = h * scale;
+      const offsetX = (1320 - renderedW) / 2;
+      const offsetY = (980 - renderedH) / 2;
+
+      let totalSimplifiedPts = 0;
+      let pathCount = 0;
+
+      for (const poly of rawPolys) {
+        const simplified = simplifyPoints(poly, epsilon);
+        if (simplified.length < 2) continue;
+        pathCount++;
+        totalSimplifiedPts += simplified.length;
+
+        // Convert image pixel coords -> SVG viewport coords & 1:1 CAD world coords (Y-up)
+        const svgPtsStr = simplified
+          .map(p => `${(offsetX + p.x * scale).toFixed(2)},${(offsetY + p.y * scale).toFixed(2)}`)
+          .join(' ');
+
+        const cadPts = simplified.map(p => ({
+          x: (offsetX + p.x * scale) - ORIGIN_SVG_X,
+          y: ORIGIN_SVG_Y - (offsetY + p.y * scale)
+        }));
+
+        currentCadPrimitives.polylines.push({
+          points: cadPts,
+          closed: false,
+          layer: 'GEOMETRY'
+        });
+
+        const polylineEl = createSvgEl('polyline', {
+          points: svgPtsStr,
+          fill: 'none',
+          stroke: '#000000',
+          'stroke-width': strokeW,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round'
+        });
+        replicaGroup.appendChild(polylineEl);
+      }
+
+      svgEl.setAttribute('viewBox', '0 0 1320 980');
+      viewModeBadgeText.textContent = 'JPEG VECTOR REPLICA • FINE BLACK LINE';
+      liveSummaryBadge.textContent = `${state.uploadedFileName} (${w}×${h}px → ${pathCount} vectors)`;
+      document.getElementById('lblTraceStats').textContent = `${pathCount} paths (${totalSimplifiedPts} pts)`;
+    }
+
+    // Handle JPEG File Upload & Downsample/Grayscale Extraction
+    function processUploadedJpegFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          // Preserve fine detail up to 1100px max dimension for instant high-resolution tracing
+          const maxDim = 1050;
+          const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const w = Math.max(16, Math.round(img.width * ratio));
+          const h = Math.max(16, Math.round(img.height * ratio));
+
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = w;
+          offCanvas.height = h;
+          const ctx = offCanvas.getContext('2d');
+          // White background fill in case of transparent edge pixels
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const raw = ctx.getImageData(0, 0, w, h).data;
+          const gray = new Float32Array(w * h);
+          for (let i = 0, p = 0; i < raw.length; i += 4, p++) {
+            // Luminance conversion
+            gray[p] = 0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2];
+          }
+
+          state.mode = 'jpeg_replica';
+          state.uploadedFileName = file.name;
+          state.uploadedImageData = { width: w, height: h, gray };
+
+          // Reset pan & zoom so replicated drawing fits screen immediately
+          state.zoom = 1;
+          state.panX = 0;
+          state.panY = 0;
+          updateTransform();
+
+          // Reveal JPEG replication controls in sidebar & toolbar
+          document.getElementById('jpegTracePanel').classList.remove('hidden');
+          document.getElementById('jpegFileNameLabel').textContent = file.name;
+          document.getElementById('btnClearUpload').classList.remove('hidden');
+          document.getElementById('btnClearUpload').classList.add('flex');
+
+          renderDrawing();
+          showToast(`Replicated "${file.name}" into crisp fine black vector lines`);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function exitJpegReplicaMode() {
+      state.mode = 'parametric';
+      document.getElementById('jpegTracePanel').classList.add('hidden');
+      document.getElementById('btnClearUpload').classList.add('hidden');
+      document.getElementById('btnClearUpload').classList.remove('flex');
+      document.getElementById('jpegUploadInput').value = '';
+      renderDrawing();
+      showToast('Returned to Parametric TR363 Pedestal Basin Drawing');
+    }
+
+    // Wire Upload Button & Tracing Sliders
+    const jpegUploadInput = document.getElementById('jpegUploadInput');
+    document.getElementById('btnUploadJpeg').addEventListener('click', () => {
+      jpegUploadInput.click();
+    });
+    jpegUploadInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        processUploadedJpegFile(e.target.files[0]);
+      }
+    });
+
+    document.getElementById('btnClearUpload').addEventListener('click', exitJpegReplicaMode);
+    document.getElementById('btnExitTraceMode').addEventListener('click', exitJpegReplicaMode);
+
+    document.getElementById('inputTraceThreshold').addEventListener('input', (e) => {
+      state.traceThreshold = parseInt(e.target.value, 10);
+      document.getElementById('lblTraceThreshold').textContent = state.traceThreshold;
+      renderDrawing();
+    });
+
+    document.getElementById('inputTraceSmoothness').addEventListener('input', (e) => {
+      state.traceSmoothness = parseFloat(e.target.value);
+      document.getElementById('lblTraceSmoothness').textContent = `${state.traceSmoothness.toFixed(2)} px`;
+      renderDrawing();
+    });
+
+    document.getElementById('inputTraceStroke').addEventListener('input', (e) => {
+      state.traceStroke = parseFloat(e.target.value);
+      document.getElementById('lblTraceStroke').textContent = `${state.traceStroke.toFixed(2)} px`;
+      renderDrawing();
+    });
+
+    document.getElementById('chkTraceCenterline').addEventListener('change', (e) => {
+      state.traceCenterline = e.target.checked;
+      renderDrawing();
+    });
+
+    // --- Interactive Inline Dimension Editor ---
+    const inlineEditorModal = document.getElementById('inlineEditorModal');
+    const inlineEditorLabel = document.getElementById('inlineEditorLabel');
+    const inlineEditorInput = document.getElementById('inlineEditorInput');
+    const inlineEditorApply = document.getElementById('inlineEditorApply');
+    let activeInlineKey = null;
+
+    const dimMeta = {
+      height: { label: 'Total Height (mm)', min: 500, max: 1200, inputEl: inputHeight },
+      depth: { label: 'Projection / Depth (mm)', min: 300, max: 750, inputEl: inputDepth },
+      width: { label: 'Basin Width (mm)', min: 380, max: 900, inputEl: inputWidth },
+      holeDist: { label: 'Tap-to-Drain Centre (mm)', min: 110, max: 350, inputEl: inputHoleDist }
+    };
+
+    function openInlineEditor(key, svgX, svgY) {
+      activeInlineKey = key;
+      const meta = dimMeta[key];
+      inlineEditorLabel.textContent = meta.label;
+      inlineEditorInput.min = meta.min;
+      inlineEditorInput.max = meta.max;
+      inlineEditorInput.value = state[key];
+
+      // Convert SVG coordinates to screen coordinates inside viewportContainer
+      const pt = svgEl.createSVGPoint();
+      pt.x = svgX * state.zoom + state.panX;
+      pt.y = svgY * state.zoom + state.panY;
+      const ctm = svgEl.getScreenCTM();
+      const screenPt = pt.matrixTransform(ctm);
+      const containerRect = viewportContainer.getBoundingClientRect();
+
+      const left = Math.min(Math.max(12, screenPt.x - containerRect.left - 112), containerRect.width - 236);
+      const top = Math.min(Math.max(12, screenPt.y - containerRect.top - 40), containerRect.height - 100);
+
+      inlineEditorModal.style.left = `${left}px`;
+      inlineEditorModal.style.top = `${top}px`;
+      inlineEditorModal.classList.remove('hidden');
+      inlineEditorInput.focus();
+      inlineEditorInput.select();
+    }
+
+    function commitInlineEditor() {
+      if (!activeInlineKey) return;
+      const meta = dimMeta[activeInlineKey];
+      const val = parseFloat(inlineEditorInput.value);
+      if (!isNaN(val) && val >= meta.min && val <= meta.max) {
+        state[activeInlineKey] = Math.round(val);
+        meta.inputEl.value = state[activeInlineKey];
+        renderDrawing();
+      }
+      inlineEditorModal.classList.add('hidden');
+      activeInlineKey = null;
+    }
+
+    inlineEditorApply.addEventListener('click', commitInlineEditor);
+    inlineEditorInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commitInlineEditor();
+      if (e.key === 'Escape') {
+        inlineEditorModal.classList.add('hidden');
+        activeInlineKey = null;
+      }
+    });
+    viewportContainer.addEventListener('mousedown', (e) => {
+      if (!inlineEditorModal.contains(e.target)) {
+        inlineEditorModal.classList.add('hidden');
+      }
+    });
+
+    // --- Sidebar Input Listeners ---
+    function bindNumericInput(inputEl, stateKey, min, max) {
+      inputEl.addEventListener('input', () => {
+        const val = parseFloat(inputEl.value);
+        if (!isNaN(val) && val >= min && val <= max) {
+          state[stateKey] = Math.round(val);
+          if (state.mode === 'jpeg_replica') exitJpegReplicaMode();
+          else renderDrawing();
+        }
+      });
+      inputEl.addEventListener('blur', () => {
+        let val = parseFloat(inputEl.value);
+        if (isNaN(val)) val = state[stateKey];
+        val = Math.min(max, Math.max(min, Math.round(val)));
+        state[stateKey] = val;
+        inputEl.value = val;
+        if (state.mode !== 'jpeg_replica') renderDrawing();
+      });
+    }
+
+    bindNumericInput(inputHeight, 'height', 500, 1200);
+    bindNumericInput(inputDepth, 'depth', 300, 750);
+    bindNumericInput(inputWidth, 'width', 380, 900);
+    bindNumericInput(inputHoleDist, 'holeDist', 110, 350);
+
+    selectLineWeight.addEventListener('change', () => {
+      state.lineWeight = parseFloat(selectLineWeight.value);
+      renderDrawing();
+    });
+
+    chkCrosshairs.addEventListener('change', () => {
+      state.showCrosshairs = chkCrosshairs.checked;
+      renderDrawing();
+    });
+
+    chkCleanCad.addEventListener('change', () => {
+      state.cleanCad = chkCleanCad.checked;
+      renderDrawing();
+    });
+
+    document.getElementById('btnResetDefaults').addEventListener('click', () => {
+      if (state.mode === 'jpeg_replica') {
+        exitJpegReplicaMode();
+      }
+      state.height = 840;
+      state.depth = 480;
+      state.width = 575;
+      state.holeDist = 205;
+      inputHeight.value = 840;
+      inputDepth.value = 480;
+      inputWidth.value = 575;
+      inputHoleDist.value = 205;
+      renderDrawing();
+      showToast('Reset dimensions to V3 standard (480 / 840 / 575 / 205)');
+    });
+
+    // --- Pan & Zoom Controls ---
+    function updateTransform() {
+      panZoomGroup.setAttribute('transform', `translate(${state.panX.toFixed(2)}, ${state.panY.toFixed(2)}) scale(${state.zoom.toFixed(3)})`);
+      document.getElementById('zoomLabel').textContent = `${Math.round(state.zoom * 100)}%`;
+    }
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+      state.zoom = Math.min(4, state.zoom * 1.2);
+      updateTransform();
+    });
+
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+      state.zoom = Math.max(0.3, state.zoom / 1.2);
+      updateTransform();
+    });
+
+    document.getElementById('btnZoomReset').addEventListener('click', () => {
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      updateTransform();
+    });
+
+    const btnToggleGrid = document.getElementById('btnToggleGrid');
+    btnToggleGrid.addEventListener('click', () => {
+      state.showGrid = !state.showGrid;
+      if (state.showGrid) {
+        viewportContainer.classList.remove('cad-clean-bg');
+        viewportContainer.classList.add('cad-grid-bg');
+        btnToggleGrid.textContent = 'Grid: ON';
+        btnToggleGrid.classList.add('bg-slate-700', 'text-sky-300');
+        btnToggleGrid.classList.remove('text-slate-300');
+      } else {
+        viewportContainer.classList.remove('cad-grid-bg');
+        viewportContainer.classList.add('cad-clean-bg');
+        btnToggleGrid.textContent = 'Grid: OFF';
+        btnToggleGrid.classList.remove('bg-slate-700', 'text-sky-300');
+        btnToggleGrid.classList.add('text-slate-300');
+      }
+    });
+
+    // Mouse Wheel Zoom & Drag Pan
+    let isPanning = false;
+    let startPanClientX = 0;
+    let startPanClientY = 0;
+
+    viewportContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      state.zoom = Math.min(4, Math.max(0.3, state.zoom * factor));
+      updateTransform();
+    }, { passive: false });
+
+    viewportContainer.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.dim-interactive') || inlineEditorModal.contains(e.target)) return;
+      isPanning = true;
+      startPanClientX = e.clientX - state.panX;
+      startPanClientY = e.clientY - state.panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      state.panX = e.clientX - startPanClientX;
+      state.panY = e.clientY - startPanClientY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+    });
+
+    // --- Toast Notification Helper ---
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotification');
+      document.getElementById('toastText').textContent = msg;
+      toast.classList.remove('opacity-0', 'translate-y-2');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+      }, 3200);
+    }
+
+    // --- 1:1 Millimeter AutoCAD Vector Generator (DWG / DXF Entities) ---
+    function generateCadVectorContent() {
+      const out = [];
+      const push = (code, val) => {
+        out.push(String(code).trim());
+        out.push(String(val));
+      };
+
+      // HEADER SECTION (Metric millimeters $INSUNITS = 4)
+      push(0, 'SECTION');
+      push(2, 'HEADER');
+      push(9, '$ACADVER');
+      push(1, 'AC1009');
+      push(9, '$INSUNITS');
+      push(70, 4);
+      push(9, '$MEASUREMENT');
+      push(70, 1);
+      push(0, 'ENDSEC');
+
+      // TABLES SECTION (Layers)
+      push(0, 'SECTION');
+      push(2, 'TABLES');
+      push(0, 'TABLE');
+      push(2, 'LAYER');
+      push(70, 4);
+
+      const layers = [
+        { name: 'GEOMETRY', color: 7 },
+        { name: 'HATCH', color: 8 },
+        { name: 'DIMENSIONS', color: 7 },
+        { name: 'CENTERLINES', color: 1 }
+      ];
+      for (const lyr of layers) {
+        push(0, 'LAYER');
+        push(2, lyr.name);
+        push(70, 0);
+        push(62, lyr.color);
+        push(6, 'CONTINUOUS');
+      }
+      push(0, 'ENDTAB');
+      push(0, 'ENDSEC');
+
+      // ENTITIES SECTION (1:1 millimeter coordinates)
+      push(0, 'SECTION');
+      push(2, 'ENTITIES');
+
+      // 1. LINE entities
+      for (const ln of currentCadPrimitives.lines) {
+        push(0, 'LINE');
+        push(8, ln.layer);
+        push(10, ln.x1.toFixed(4));
+        push(20, ln.y1.toFixed(4));
+        push(30, '0.0');
+        push(11, ln.x2.toFixed(4));
+        push(21, ln.y2.toFixed(4));
+        push(31, '0.0');
+      }
+
+      // 2. CIRCLE entities
+      for (const c of currentCadPrimitives.circles) {
+        push(0, 'CIRCLE');
+        push(8, c.layer);
+        push(10, c.cx.toFixed(4));
+        push(20, c.cy.toFixed(4));
+        push(30, '0.0');
+        push(40, c.r.toFixed(4));
+      }
+
+      // 3. POLYLINE / VERTEX entities (for smooth basin bowl curves & replicated JPEG vectors)
+      for (const pl of currentCadPrimitives.polylines) {
+        push(0, 'POLYLINE');
+        push(8, pl.layer);
+        push(66, 1);
+        push(70, pl.closed ? 1 : 0);
+        for (const pt of pl.points) {
+          push(0, 'VERTEX');
+          push(8, pl.layer);
+          push(10, pt.x.toFixed(4));
+          push(20, pt.y.toFixed(4));
+          push(30, '0.0');
+        }
+        push(0, 'SEQEND');
+      }
+
+      // 4. SOLID entities (Filled CAD dimension arrowheads)
+      for (const s of currentCadPrimitives.solids) {
+        const [p1, p2, p3] = s.points;
+        push(0, 'SOLID');
+        push(8, s.layer);
+        push(10, p1.x.toFixed(4));
+        push(20, p1.y.toFixed(4));
+        push(30, '0.0');
+        push(11, p2.x.toFixed(4));
+        push(21, p2.y.toFixed(4));
+        push(31, '0.0');
+        push(12, p3.x.toFixed(4));
+        push(22, p3.y.toFixed(4));
+        push(32, '0.0');
+        push(13, p3.x.toFixed(4));
+        push(23, p3.y.toFixed(4));
+        push(33, '0.0');
+      }
+
+      // 5. TEXT entities (All dimension labels)
+      for (const t of currentCadPrimitives.texts) {
+        push(0, 'TEXT');
+        push(8, t.layer);
+        push(10, t.x.toFixed(4));
+        push(20, t.y.toFixed(4));
+        push(30, '0.0');
+        push(40, t.height.toFixed(2));
+        push(1, t.text);
+        push(50, t.rotation.toFixed(2));
+        push(72, 1); // Horizontal center justification
+        push(11, t.x.toFixed(4));
+        push(21, t.y.toFixed(4));
+        push(31, '0.0');
+        push(73, 2); // Vertical middle justification
+      }
+
+      push(0, 'ENDSEC');
+      push(0, 'EOF');
+
+      return out.join('\r\n');
+    }
+
+    function triggerDownload(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCadFile(ext) {
+      const baseName = state.mode === 'jpeg_replica' && state.uploadedFileName
+        ? `${state.uploadedFileName.replace(/\.[^/.]+$/, '')}_CAD_Replica`
+        : `Pedestal_Basin_TR363_${state.width}x${state.depth}x${state.height}_C${state.holeDist}`;
+      const filename = `${baseName}.${ext}`;
+      if (ext === 'svg') {
+        const clone = svgEl.cloneNode(true);
+        clone.querySelector('#panZoomGroup').removeAttribute('transform');
+        const serializer = new XMLSerializer();
+        const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(clone);
+        triggerDownload(svgStr, filename, 'image/svg+xml;charset=utf-8');
+        showToast(`Downloaded ${filename}`);
+      } else {
+        const cadData = generateCadVectorContent();
+        triggerDownload(cadData, filename, 'application/acad');
+        showToast(`Exported 1:1 mm CAD file: ${filename}`);
+      }
+    }
+
+    // Export Button Event Wiring
+    document.getElementById('btnExportDwg').addEventListener('click', () => exportCadFile('dwg'));
+    document.getElementById('btnExportDwgAlt').addEventListener('click', () => {
+      exportDropdown.classList.add('hidden');
+      exportCadFile('dwg');
+    });
+    document.getElementById('btnExportDxf').addEventListener('click', () => {
+      exportDropdown.classList.add('hidden');
+      exportCadFile('dxf');
+    });
+    document.getElementById('btnExportSvg').addEventListener('click', () => {
+      exportDropdown.classList.add('hidden');
+      exportCadFile('svg');
+    });
+
+    const btnMoreExports = document.getElementById('btnMoreExports');
+    const exportDropdown = document.getElementById('exportDropdown');
+    btnMoreExports.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportDropdown.classList.toggle('hidden');
+    });
+    window.addEventListener('click', () => {
+      exportDropdown.classList.add('hidden');
+    });
+
+    // Initial Render on Load
+    window.addEventListener('DOMContentLoaded', () => {
+      renderDrawing();
+      updateTransform();
+    });
+  </script>
+
+  <script>
+  /**
+   * Image Upload & Replicate tab (additive module, self-contained).
+   * Uploads JPEG / PNG, traces fine black vector lines at native resolution,
+   * shows / edits output dimensions (px, mm, cm, in) and exports SVG / DXF / PNG.
+   * Does not modify any function or element of the Parametric Drawing page.
+   */
+  (function () {
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+    // <PURE>
+    // Zhang-Suen thinning working only on a list of active foreground pixels (fast on line drawings).
+    // img: padded Uint8Array (1 px zero border), pw: padded width. Returns Int32Array of surviving pixel indices.
+    function upThin(img, pw) {
+      let n = 0;
+      for (let i = 0; i < img.length; i++) if (img[i]) n++;
+      let cur = new Int32Array(n);
+      for (let i = 0, k = 0; i < img.length; i++) if (img[i]) cur[k++] = i;
+      const del = new Int32Array(n);
+      let changed = true;
+      let guard = 0;
+      while (changed && guard++ < 600) {
+        changed = false;
+        for (let step = 0; step < 2; step++) {
+          let nd = 0;
+          for (let k = 0; k < cur.length; k++) {
+            const idx = cur[k];
+            const p2 = img[idx - pw], p3 = img[idx - pw + 1], p4 = img[idx + 1], p5 = img[idx + pw + 1];
+            const p6 = img[idx + pw], p7 = img[idx + pw - 1], p8 = img[idx - 1], p9 = img[idx - pw - 1];
+            const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+            if (B < 2 || B > 6) continue;
+            const A =
+              ((p2 === 0 && p3 === 1) ? 1 : 0) + ((p3 === 0 && p4 === 1) ? 1 : 0) +
+              ((p4 === 0 && p5 === 1) ? 1 : 0) + ((p5 === 0 && p6 === 1) ? 1 : 0) +
+              ((p6 === 0 && p7 === 1) ? 1 : 0) + ((p7 === 0 && p8 === 1) ? 1 : 0) +
+              ((p8 === 0 && p9 === 1) ? 1 : 0) + ((p9 === 0 && p2 === 1) ? 1 : 0);
+            if (A !== 1) continue;
+            if (step === 0) {
+              if (p2 * p4 * p6 !== 0 || p4 * p6 * p8 !== 0) continue;
+            } else {
+              if (p2 * p4 * p8 !== 0 || p2 * p6 * p8 !== 0) continue;
+            }
+            del[nd++] = idx;
+          }
+          if (nd) {
+            changed = true;
+            for (let k = 0; k < nd; k++) img[del[k]] = 0;
+            let m = 0;
+            for (let k = 0; k < cur.length; k++) {
+              const idx = cur[k];
+              if (img[idx]) cur[m++] = idx;
+            }
+            cur = cur.subarray(0, m);
+          }
+        }
+      }
+      return cur;
+    }
+
+    // Trace a thinned skeleton into ordered polylines. Points are in "traced pixel" coordinates
+    // where pixel (x, y) has its centre at (x + 0.5, y + 0.5). Junction pixels are shared by the
+    // branches that meet there so connectivity is preserved.
+    function upTraceSkeleton(skel, list, pw) {
+      const N = skel.length;
+      const off = [-pw, -pw + 1, 1, pw + 1, pw, pw - 1, -1, -pw - 1]; // N NE E SE S SW W NW
+      const ORD = [0, 2, 4, 6, 1, 3, 5, 7];                          // orthogonal first
+      const deg = new Uint8Array(N);
+      for (let k = 0; k < list.length; k++) {
+        const idx = list[k];
+        let cnt = 0, runs = 0;
+        let prevV = skel[idx + off[7]];
+        for (let d = 0; d < 8; d++) {
+          const v = skel[idx + off[d]];
+          cnt += v;
+          if (v === 1 && prevV === 0) runs++;
+          prevV = v;
+        }
+        deg[idx] = cnt === 0 ? 0 : (runs === 0 ? 2 : Math.min(runs, 8));
+      }
+      const visited = new Uint8Array(N);
+      const polys = [];
+      const toPt = (idx) => {
+        const y = (idx / pw) | 0;
+        return { x: idx - y * pw - 0.5, y: y - 0.5 };
+      };
+
+      function walk(s, q) {
+        const path = [s, q];
+        visited[q] = 1;
+        let prev = s, cur = q;
+        for (;;) {
+          let next = -1, node = -1;
+          for (let t = 0; t < 8; t++) {
+            const n = cur + off[ORD[t]];
+            if (!skel[n] || n === prev) continue;
+            if (deg[n] !== 2) {
+              if (node < 0) node = n;
+            } else if (!visited[n] && next < 0) {
+              next = n;
+            }
+          }
+          if (node >= 0) { path.push(node); break; }
+          if (next < 0) break;
+          visited[next] = 1;
+          path.push(next);
+          prev = cur;
+          cur = next;
+        }
+        return path;
+      }
+
+      // Pass 1: from endpoints / junctions
+      for (let k = 0; k < list.length; k++) {
+        const s = list[k];
+        const ds = deg[s];
+        if (ds === 2 || ds === 0) continue;
+        for (let t = 0; t < 8; t++) {
+          const q = s + off[ORD[t]];
+          if (!skel[q]) continue;
+          if (deg[q] === 2) {
+            if (visited[q]) continue;
+            polys.push({ pts: walk(s, q).map(toPt), closed: false, keep: false });
+          } else if (q > s) {
+            polys.push({ pts: [toPt(s), toPt(q)], closed: false, keep: true });
+          }
+        }
+      }
+
+      // Pass 2: isolated closed loops (circles, closed outlines)
+      for (let k = 0; k < list.length; k++) {
+        const s = list[k];
+        if (deg[s] !== 2 || visited[s]) continue;
+        const path = [s];
+        visited[s] = 1;
+        let cur = s;
+        for (;;) {
+          let nx = -1;
+          for (let t = 0; t < 8; t++) {
+            const q = cur + off[ORD[t]];
+            if (skel[q] && deg[q] === 2 && !visited[q]) { nx = q; break; }
+          }
+          if (nx < 0) break;
+          visited[nx] = 1;
+          path.push(nx);
+          cur = nx;
+        }
+        const fy = (s / pw) | 0, fx = s - fy * pw;
+        const ly = (cur / pw) | 0, lx = cur - ly * pw;
+        const closed = path.length >= 3 && Math.abs(fx - lx) <= 1 && Math.abs(fy - ly) <= 1;
+        const pts = path.map(toPt);
+        if (closed) pts.push({ x: pts[0].x, y: pts[0].y });
+        polys.push({ pts, closed, keep: false });
+      }
+      return polys;
+    }
+
+    // Marching squares with linear (sub-pixel) interpolation on the padded luminance field.
+    // Ink = value < T. Returns closed polygons in traced pixel coordinates.
+    function upMarch(eff, pw, ph, T) {
+      const adj = new Map();
+      const pos = new Map();
+      const SEG = [null, [[3, 2]], [[2, 1]], [[3, 1]], [[0, 1]], [[0, 1], [3, 2]], [[0, 2]], [[0, 3]],
+                   [[0, 3]], [[0, 2]], [[0, 3], [2, 1]], [[0, 1]], [[3, 1]], [[2, 1]], [[3, 2]], null];
+      function K(kind, x, y) {
+        const key = (y * pw + x) * 2 + kind;
+        if (!pos.has(key)) {
+          const a = y * pw + x;
+          const b = kind === 0 ? a + 1 : a + pw;
+          const fa = T - eff[a], fb = T - eff[b];
+          let t = fa / (fa - fb);
+          if (!isFinite(t)) t = 0.5;
+          t = clamp(t, 0, 1);
+          pos.set(key, kind === 0 ? [x + t - 0.5, y - 0.5] : [x - 0.5, y + t - 0.5]);
+        }
+        return key;
+      }
+      function EK(e, x, y) {
+        return e === 0 ? K(0, x, y) : e === 1 ? K(1, x + 1, y) : e === 2 ? K(0, x, y + 1) : K(1, x, y);
+      }
+      function link(k1, k2) {
+        let a = adj.get(k1); if (!a) adj.set(k1, a = []); a.push(k2);
+        let b = adj.get(k2); if (!b) adj.set(k2, b = []); b.push(k1);
+      }
+      for (let y = 0; y < ph - 1; y++) {
+        for (let x = 0; x < pw - 1; x++) {
+          const i = y * pw + x;
+          const v0 = eff[i], v1 = eff[i + 1], v2 = eff[i + pw + 1], v3 = eff[i + pw];
+          if (v0 >= T && v1 >= T && v2 >= T && v3 >= T) continue;
+          const code = (v0 < T ? 8 : 0) + (v1 < T ? 4 : 0) + (v2 < T ? 2 : 0) + (v3 < T ? 1 : 0);
+          const segs = SEG[code];
+          if (!segs) continue;
+          for (let s = 0; s < segs.length; s++) {
+            link(EK(segs[s][0], x, y), EK(segs[s][1], x, y));
+          }
+        }
+      }
+      const used = new Set();
+      const polys = [];
+      for (const startKey of adj.keys()) {
+        if (used.has(startKey)) continue;
+        const keys = [startKey];
+        used.add(startKey);
+        let cur = startKey;
+        let closed = false;
+        for (;;) {
+          const nbrs = adj.get(cur);
+          let next = -1;
+          for (let j = 0; j < nbrs.length; j++) {
+            if (!used.has(nbrs[j])) { next = nbrs[j]; break; }
+          }
+          if (next === -1) { closed = keys.length > 2 && nbrs.indexOf(startKey) !== -1; break; }
+          used.add(next);
+          keys.push(next);
+          cur = next;
+        }
+        const pts = keys.map((k) => { const p = pos.get(k); return { x: p[0], y: p[1] }; });
+        if (closed) pts.push({ x: pts[0].x, y: pts[0].y });
+        polys.push({ pts, closed, keep: false });
+      }
+      return polys;
+    }
+
+    function upOtsu(lum) {
+      const hist = new Float64Array(256);
+      for (let i = 0; i < lum.length; i++) hist[clamp(lum[i] | 0, 0, 255)]++;
+      const total = lum.length;
+      let sum = 0;
+      for (let t = 0; t < 256; t++) sum += t * hist[t];
+      let wB = 0, sumB = 0, best = -1, thr = 128;
+      for (let t = 0; t < 256; t++) {
+        wB += hist[t];
+        if (!wB) continue;
+        const wF = total - wB;
+        if (!wF) break;
+        sumB += t * hist[t];
+        const mB = sumB / wB, mF = (sum - sumB) / wF;
+        const between = wB * wF * (mB - mF) * (mB - mF);
+        if (between > best) { best = between; thr = t; }
+      }
+      return thr;
+    }
+    // </PURE>
+
+    // ------------------------------------------------------------------ state
+    const MAX_TRACE_DIM = 4096;
+    const up = {
+      tabActive: false,
+      loaded: false,
+      fileName: '', fileType: '', fileSize: 0, objectUrl: null,
+      origW: 0, origH: 0,          // native pixel size of the uploaded image
+      tw: 0, th: 0,                // size of the raster used for tracing (capped)
+      gray: null,
+      threshold: 175, invert: false, mode: 'centerline', epsilon: 0.6, minLen: 3, lineWidth: 1,
+      paths: [], pathCount: 0, ptCount: 0, traceMs: 0, d: '',
+      sx: 1, sy: 1, dpi: 96, unit: 'px', lock: true,
+      zoom: 1, panX: 0, panY: 0, showGrid: true, needsFit: false
+    };
+
+    // ------------------------------------------------------------------ units
+    function pxTo(unit, px) {
+      const inch = px / up.dpi;
+      if (unit === 'mm') return inch * 25.4;
+      if (unit === 'cm') return inch * 2.54;
+      if (unit === 'in') return inch;
+      return px;
+    }
+    function toPx(unit, v) {
+      if (unit === 'mm') return v / 25.4 * up.dpi;
+      if (unit === 'cm') return v / 2.54 * up.dpi;
+      if (unit === 'in') return v * up.dpi;
+      return v;
+    }
+    function fmt(unit, v) {
+      const digits = unit === 'in' ? 3 : 2;
+      return String(parseFloat(v.toFixed(digits)));
+    }
+    const outPxW = () => up.origW * up.sx;
+    const outPxH = () => up.origH * up.sy;
+
+    // ------------------------------------------------------------------ toast
+    let toastTimer = null;
+    function toast(msg) {
+      $('upToastText').textContent = msg;
+      const el = $('upToast');
+      el.classList.remove('opacity-0', 'translate-y-2');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('opacity-0', 'translate-y-2'), 3400);
+    }
+
+    // ------------------------------------------------------------------ dimension UI
+    function refreshDimUI(skipId) {
+      const unit = up.unit;
+      $('upLblW').textContent = `(${unit === 'in' ? 'inch' : unit})`;
+      $('upLblH').textContent = `(${unit === 'in' ? 'inch' : unit})`;
+      const units = ['px', 'mm', 'cm', 'in'];
+      if (!up.loaded) {
+        for (const u of units) { $('upO_' + u).textContent = '\u2014'; $('upN_' + u).textContent = '\u2014'; }
+        $('upInW').value = ''; $('upInH').value = ''; $('upInScale').value = '';
+        $('upSizeBadge').textContent = 'No image loaded';
+        return;
+      }
+      const w = outPxW(), h = outPxH();
+      for (const u of units) {
+        $('upO_' + u).textContent = `${fmt(u, pxTo(u, up.origW))} \u00d7 ${fmt(u, pxTo(u, up.origH))}`;
+        $('upN_' + u).textContent = `${fmt(u, pxTo(u, w))} \u00d7 ${fmt(u, pxTo(u, h))}`;
+      }
+      if (skipId !== 'upInW') $('upInW').value = fmt(unit, pxTo(unit, w));
+      if (skipId !== 'upInH') $('upInH').value = fmt(unit, pxTo(unit, h));
+      if (skipId !== 'upInScale') $('upInScale').value = fmt('px', up.sx * 100);
+      $('upSizeBadge').textContent =
+        `${fmt('px', w)} \u00d7 ${fmt('px', h)} px | ${fmt('mm', pxTo('mm', w))} \u00d7 ${fmt('mm', pxTo('mm', h))} mm`;
+    }
+
+    // Change scale while keeping the drawing's centre fixed on screen.
+    function setScale(sx, sy, skipId) {
+      if (!up.loaded) return;
+      const w0 = outPxW(), h0 = outPxH();
+      const cx = up.panX + w0 * up.zoom / 2, cy = up.panY + h0 * up.zoom / 2;
+      up.sx = clamp(sx, 0.001, 100);
+      up.sy = clamp(sy, 0.001, 100);
+      up.panX = cx - outPxW() * up.zoom / 2;
+      up.panY = cy - outPxH() * up.zoom / 2;
+      rebuildGeometry();
+      applyView();
+      refreshDimUI(skipId);
+    }
+
+    // ------------------------------------------------------------------ geometry -> SVG
+    function rebuildGeometry() {
+      const sx = up.sx, sy = up.sy;
+      const parts = [];
+      for (const p of up.paths) {
+        const xy = p.xy;
+        const n = xy.length / 2;
+        let s = 'M' + (xy[0] * sx).toFixed(2) + ' ' + (xy[1] * sy).toFixed(2);
+        for (let j = 1; j < n; j++) {
+          s += 'L' + (xy[2 * j] * sx).toFixed(2) + ' ' + (xy[2 * j + 1] * sy).toFixed(2);
+        }
+        if (p.closed) s += 'Z';
+        parts.push(s);
+      }
+      up.d = parts.join('');
+      const w = outPxW(), h = outPxH();
+      $('upPath').setAttribute('d', up.d);
+      $('upPath').setAttribute('stroke-width', up.lineWidth);
+      const r = $('upPageRect');
+      r.setAttribute('width', w); r.setAttribute('height', h);
+      const im = $('upUnderlay');
+      im.setAttribute('width', w); im.setAttribute('height', h);
+    }
+
+    function applyView() {
+      $('upPanZoom').setAttribute('transform',
+        `translate(${up.panX.toFixed(2)} ${up.panY.toFixed(2)}) scale(${up.zoom.toFixed(5)})`);
+      if (up.tabActive) $('zoomLabel').textContent = `${Math.round(up.zoom * 100)}%`;
+    }
+
+    function fitView() {
+      const vp = $('upViewport');
+      const cw = vp.clientWidth, ch = vp.clientHeight;
+      if (!up.loaded || cw < 10 || ch < 10) { up.needsFit = true; return; }
+      const w = outPxW(), h = outPxH();
+      up.zoom = clamp(Math.min((cw - 48) / w, (ch - 48) / h), 0.005, 64);
+      up.panX = (cw - w * up.zoom) / 2;
+      up.panY = (ch - h * up.zoom) / 2;
+      up.needsFit = false;
+      applyView();
+    }
+
+    function zoomAt(clientX, clientY, factor) {
+      const r = $('upViewport').getBoundingClientRect();
+      const mx = clientX - r.left, my = clientY - r.top;
+      const z0 = up.zoom, z1 = clamp(z0 * factor, 0.005, 64);
+      up.panX = mx - (mx - up.panX) * (z1 / z0);
+      up.panY = my - (my - up.panY) * (z1 / z0);
+      up.zoom = z1;
+      applyView();
+    }
+    function zoomCentre(factor) {
+      const r = $('upViewport').getBoundingClientRect();
+      zoomAt(r.left + r.width / 2, r.top + r.height / 2, factor);
+    }
+
+    // ------------------------------------------------------------------ tracing pipeline
+    function trace() {
+      const t0 = performance.now();
+      const tw = up.tw, th = up.th;
+      const pw = tw + 2, ph = th + 2;
+      const thresh = up.threshold;
+      const lum = up.invert ? up.gray.map((v) => 255 - v) : up.gray;
+
+      // Effective ink field (padded): ink pixels keep their luminance, everything else is paper (255).
+      const eff = new Float32Array(pw * ph).fill(255);
+      const low = thresh * 0.72;
+      for (let y = 0; y < th; y++) {
+        const row = y * tw;
+        for (let x = 0; x < tw; x++) {
+          const i = row + x;
+          const v = lum[i];
+          if (v >= thresh) continue;
+          let dark = v < low;
+          if (!dark && x > 0 && y > 0 && x < tw - 1 && y < th - 1) {
+            const avg = (lum[i - tw - 1] + lum[i - tw] + lum[i - tw + 1] +
+                         lum[i - 1] + v + lum[i + 1] +
+                         lum[i + tw - 1] + lum[i + tw] + lum[i + tw + 1]) / 9;
+            dark = v < avg - 6;
+          }
+          if (dark) eff[(y + 1) * pw + (x + 1)] = v;
+        }
+      }
+
+      let polys;
+      if (up.mode === 'centerline') {
+        const bin = new Uint8Array(pw * ph);
+        for (let i = 0; i < bin.length; i++) if (eff[i] < thresh) bin[i] = 1;
+        const list = upThin(bin, pw);
+        polys = upTraceSkeleton(bin, list, pw);
+      } else {
+        polys = upMarch(eff, pw, ph, thresh);
+      }
+
+      const kx = up.origW / tw, ky = up.origH / th;
+      const out = [];
+      let ptCount = 0;
+      for (const poly of polys) {
+        if (!poly.keep && poly.pts.length < up.minLen) continue;
+        const simp = simplifyPoints(poly.pts, up.epsilon);
+        if (simp.length < 2) continue;
+        if (poly.closed && simp.length < 4) continue;
+        const xy = new Float32Array(simp.length * 2);
+        for (let j = 0; j < simp.length; j++) {
+          xy[2 * j] = simp[j].x * kx;
+          xy[2 * j + 1] = simp[j].y * ky;
+        }
+        out.push({ xy, closed: poly.closed });
+        ptCount += simp.length;
+      }
+      up.paths = out;
+      up.pathCount = out.length;
+      up.ptCount = ptCount;
+      up.traceMs = Math.round(performance.now() - t0);
+      $('upStats').textContent = `${up.pathCount} paths \u2022 ${up.ptCount} vertices \u2022 ${up.traceMs} ms`;
+    }
+
+    let procTimer = null, procToken = 0;
+    function scheduleProcess(delay) {
+      clearTimeout(procTimer);
+      procTimer = setTimeout(runProcess, delay === undefined ? 140 : delay);
+    }
+    function runProcess() {
+      if (!up.loaded) return;
+      const token = ++procToken;
+      $('upBusy').style.display = 'flex';
+      setTimeout(() => {
+        if (token !== procToken) return;
+        try {
+          trace();
+          rebuildGeometry();
+        } catch (err) {
+          console.error(err);
+          toast('Tracing failed for this image. Try a different threshold.');
+        }
+        $('upBusy').style.display = 'none';
+      }, 30);
+    }
+
+    // ------------------------------------------------------------------ file loading
+    function isAccepted(file) {
+      const n = (file.name || '').toLowerCase();
+      return /^image\/(jpeg|png)$/.test(file.type || '') || /\.(jpe?g|png)$/.test(n);
+    }
+
+    function loadFile(file) {
+      if (!file) return;
+      if (!isAccepted(file)) { toast('Unsupported file. Please upload a JPEG or PNG image.'); return; }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          ingest(img, file, url);
+        } catch (err) {
+          console.error(err);
+          URL.revokeObjectURL(url);
+          toast('Could not read this image.');
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); toast('Could not decode this image file.'); };
+      img.src = url;
+    }
+
+    function ingest(img, file, url) {
+      const W = img.naturalWidth, H = img.naturalHeight;
+      if (!W || !H) throw new Error('Empty image');
+      const ratio = Math.min(1, MAX_TRACE_DIM / Math.max(W, H));
+      const tw = Math.max(1, Math.round(W * ratio));
+      const th = Math.max(1, Math.round(H * ratio));
+      const c = document.createElement('canvas');
+      c.width = tw; c.height = th;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#ffffff';            // transparent PNG pixels become paper white
+      ctx.fillRect(0, 0, tw, th);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, tw, th);
+      const raw = ctx.getImageData(0, 0, tw, th).data;
+      const gray = new Float32Array(tw * th);
+      let sum = 0;
+      for (let i = 0, p = 0; i < raw.length; i += 4, p++) {
+        const g = 0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2];
+        gray[p] = g;
+        sum += g;
+      }
+      const mean = sum / gray.length;
+
+      if (up.objectUrl) URL.revokeObjectURL(up.objectUrl);
+      up.objectUrl = url;
+      up.fileName = file.name;
+      up.fileType = file.type || (/png$/i.test(file.name) ? 'image/png' : 'image/jpeg');
+      up.fileSize = file.size;
+      up.origW = W; up.origH = H;
+      up.tw = tw; up.th = th;
+      up.gray = gray;
+      up.loaded = true;
+      up.sx = 1; up.sy = 1;
+
+      // Light-on-dark drawings (blueprints) are detected automatically
+      up.invert = mean < 110;
+      $('upInvert').checked = up.invert;
+      up.threshold = 175;
+      $('upThr').value = 175;
+      $('upLblThr').textContent = '175';
+
+      $('upUnderlay').setAttribute('href', url);
+      $('upEmpty').style.display = 'none';
+      const info = $('upFileInfo');
+      info.textContent = `${file.name} \u2022 ${up.fileType.replace('image/', '').toUpperCase()} \u2022 ${(file.size / 1024).toFixed(file.size > 1048576 ? 0 : 1)} KB`;
+      info.classList.remove('hidden');
+      const note = $('upNote');
+      if (ratio < 1) {
+        note.textContent = `Large image: line detection runs at ${tw} \u00d7 ${th} px and is mapped back onto the full ${W} \u00d7 ${H} px size.`;
+        note.classList.remove('hidden');
+      } else {
+        note.classList.add('hidden');
+      }
+
+      refreshDimUI(null);
+      up.zoom = 1; up.panX = 0; up.panY = 0;
+      rebuildGeometry();
+      if (up.tabActive) fitView(); else up.needsFit = true;
+      runProcess();
+      toast(`Replicating "${file.name}" (${W} \u00d7 ${H} px) as fine black lines`);
+    }
+
+    // ------------------------------------------------------------------ exports
+    const baseName = () => (up.fileName || 'image').replace(/\.[^/.]+$/, '');
+    const sizeTag = () => `${Math.round(outPxW())}x${Math.round(outPxH())}px`;
+
+    function buildSvg() {
+      const w = outPxW(), h = outPxH();
+      return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${pxTo('mm', w).toFixed(3)}mm" height="${pxTo('mm', h).toFixed(3)}mm" viewBox="0 0 ${w.toFixed(3)} ${h.toFixed(3)}">\n` +
+        `<path d="${up.d}" fill="none" stroke="#000000" stroke-width="${up.lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>\n</svg>`;
+    }
+
+    function buildDxf() {
+      const out = [];
+      const push = (code, val) => { out.push(String(code).trim()); out.push(String(val)); };
+      const k = 25.4 / up.dpi;                 // output px -> mm
+      const H = outPxH();
+      push(0, 'SECTION'); push(2, 'HEADER');
+      push(9, '$ACADVER'); push(1, 'AC1009');
+      push(9, '$INSUNITS'); push(70, 4);
+      push(9, '$MEASUREMENT'); push(70, 1);
+      push(0, 'ENDSEC');
+      push(0, 'SECTION'); push(2, 'TABLES');
+      push(0, 'TABLE'); push(2, 'LAYER'); push(70, 1);
+      push(0, 'LAYER'); push(2, 'GEOMETRY'); push(70, 0); push(62, 7); push(6, 'CONTINUOUS');
+      push(0, 'ENDTAB'); push(0, 'ENDSEC');
+      push(0, 'SECTION'); push(2, 'ENTITIES');
+      for (const p of up.paths) {
+        const xy = p.xy;
+        let n = xy.length / 2;
+        if (p.closed && n > 2) n -= 1;         // closing vertex is implied by the closed flag
+        push(0, 'POLYLINE'); push(8, 'GEOMETRY'); push(66, 1); push(70, p.closed ? 1 : 0);
+        for (let j = 0; j < n; j++) {
+          push(0, 'VERTEX'); push(8, 'GEOMETRY');
+          push(10, (xy[2 * j] * up.sx * k).toFixed(4));
+          push(20, ((H - xy[2 * j + 1] * up.sy) * k).toFixed(4));   // flip Y: CAD is Y-up
+          push(30, '0.0');
+        }
+        push(0, 'SEQEND');
+      }
+      push(0, 'ENDSEC'); push(0, 'EOF');
+      return out.join('\r\n');
+    }
+
+    function exportPng() {
+      const w = Math.round(outPxW()), h = Math.round(outPxH());
+      if (w > 16384 || h > 16384 || w * h > 120e6) {
+        toast('Output too large for PNG (max 16384 px per side). Use SVG or DXF instead.');
+        return;
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = up.lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke(new Path2D(up.d));
+      const name = `${baseName()}_Replica_${sizeTag()}.png`;
+      c.toBlob((b) => {
+        if (b) { triggerDownload(b, name, 'image/png'); toast(`Downloaded ${name}`); }
+      }, 'image/png');
+    }
+
+    function exportReplica(ext) {
+      if (!up.loaded) { toast('Upload a JPEG or PNG image first.'); return; }
+      const name = `${baseName()}_Replica_${sizeTag()}.${ext}`;
+      if (ext === 'svg') {
+        triggerDownload(buildSvg(), name, 'image/svg+xml;charset=utf-8');
+      } else if (ext === 'png') {
+        exportPng();
+        return;
+      } else {
+        triggerDownload(buildDxf(), name, 'application/acad');
+      }
+      toast(`Exported ${name}`);
+    }
+
+    // ------------------------------------------------------------------ tabs
+    const TAB_ON = ['bg-slate-100', 'text-slate-900', 'border-slate-100'];
+    const TAB_OFF = ['text-slate-300', 'hover:text-white', 'hover:bg-slate-800', 'border-transparent'];
+    function styleTab(btn, on) {
+      TAB_ON.forEach((c) => btn.classList.toggle(c, on));
+      TAB_OFF.forEach((c) => btn.classList.toggle(c, !on));
+    }
+    function syncGridButton(on) {
+      const b = $('btnToggleGrid');
+      b.textContent = on ? 'Grid: ON' : 'Grid: OFF';
+      b.classList.toggle('bg-slate-700', on);
+      b.classList.toggle('text-sky-300', on);
+      b.classList.toggle('text-slate-300', !on);
+    }
+    function switchTab(which) {
+      const isUp = which === 'upload';
+      up.tabActive = isUp;
+      $('pageParametric').style.display = isUp ? 'none' : '';
+      $('pageUpload').style.display = isUp ? 'flex' : 'none';
+      styleTab($('tabParametric'), !isUp);
+      styleTab($('tabUpload'), isUp);
+      $('exportDropdown').classList.add('hidden');
+      if (isUp) {
+        syncGridButton(up.showGrid);
+        if (up.loaded && up.needsFit) fitView();
+        else if (up.loaded) applyView();
+        else $('zoomLabel').textContent = '100%';
+      } else {
+        syncGridButton(state.showGrid);
+        updateTransform();
+      }
+    }
+    $('tabParametric').addEventListener('click', () => switchTab('parametric'));
+    $('tabUpload').addEventListener('click', () => switchTab('upload'));
+
+    // While the Image Upload tab is open, the shared header tools act on this tab.
+    const HEADER_IDS = ['btnUploadJpeg', 'btnExportDwg', 'btnExportDwgAlt', 'btnExportDxf', 'btnExportSvg',
+                        'btnZoomIn', 'btnZoomOut', 'btnZoomReset', 'btnToggleGrid'];
+    document.addEventListener('click', (e) => {
+      if (!up.tabActive) return;
+      const el = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!el || HEADER_IDS.indexOf(el.id) === -1) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      $('exportDropdown').classList.add('hidden');
+      switch (el.id) {
+        case 'btnUploadJpeg': $('upFileInput').click(); break;
+        case 'btnExportDwg':
+        case 'btnExportDwgAlt': exportReplica('dwg'); break;
+        case 'btnExportDxf': exportReplica('dxf'); break;
+        case 'btnExportSvg': exportReplica('svg'); break;
+        case 'btnZoomIn': if (up.loaded) zoomCentre(1.2); break;
+        case 'btnZoomOut': if (up.loaded) zoomCentre(1 / 1.2); break;
+        case 'btnZoomReset': fitView(); break;
+        case 'btnToggleGrid': {
+          up.showGrid = !up.showGrid;
+          const vp = $('upViewport');
+          vp.classList.toggle('cad-grid-bg', up.showGrid);
+          vp.classList.toggle('cad-clean-bg', !up.showGrid);
+          syncGridButton(up.showGrid);
+          break;
+        }
+      }
+    }, true);
+
+    // ------------------------------------------------------------------ wiring
+    const fileInput = $('upFileInput');
+    const dropZone = $('upDropZone');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    $('upBtnEmpty').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) loadFile(f);
+      fileInput.value = '';
+    });
+
+    const vp = $('upViewport');
+    [vp, dropZone].forEach((zone) => {
+      zone.addEventListener('dragenter', (e) => { e.preventDefault(); });
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); });
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) loadFile(f);
+      });
+    });
+
+    // Pan & zoom
+    let dragging = false, lastX = 0, lastY = 0;
+    vp.addEventListener('wheel', (e) => {
+      if (!up.loaded) return;
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    }, { passive: false });
+    vp.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest && e.target.closest('button')) return;
+      dragging = true; lastX = e.clientX; lastY = e.clientY;
+      try { vp.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    });
+    vp.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      up.panX += e.clientX - lastX;
+      up.panY += e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      applyView();
+    });
+    const endDrag = () => { dragging = false; };
+    vp.addEventListener('pointerup', endDrag);
+    vp.addEventListener('pointercancel', endDrag);
+    window.addEventListener('resize', () => { if (up.tabActive && up.needsFit) fitView(); });
+
+    // Dimension inputs
+    $('upInW').addEventListener('input', () => {
+      const v = parseFloat($('upInW').value);
+      if (!up.loaded || !(v > 0)) return;
+      const sx = toPx(up.unit, v) / up.origW;
+      setScale(sx, up.lock ? sx : up.sy, 'upInW');
+    });
+    $('upInH').addEventListener('input', () => {
+      const v = parseFloat($('upInH').value);
+      if (!up.loaded || !(v > 0)) return;
+      const sy = toPx(up.unit, v) / up.origH;
+      setScale(up.lock ? sy : up.sx, sy, 'upInH');
+    });
+    $('upInScale').addEventListener('input', () => {
+      const v = parseFloat($('upInScale').value);
+      if (!up.loaded || !(v > 0)) return;
+      const f = (v / 100) / up.sx;
+      setScale(up.sx * f, up.sy * f, 'upInScale');
+    });
+    ['upInW', 'upInH', 'upInScale'].forEach((id) => {
+      $(id).addEventListener('blur', () => refreshDimUI(null));   // tidy formatting / restore invalid entries
+    });
+    $('upUnit').addEventListener('change', () => { up.unit = $('upUnit').value; refreshDimUI(null); });
+    $('upInDpi').addEventListener('input', () => {
+      const v = parseFloat($('upInDpi').value);
+      if (!(v >= 1 && v <= 2400)) return;
+      up.dpi = v;
+      refreshDimUI('upInDpi');
+    });
+    $('upInDpi').addEventListener('blur', () => { $('upInDpi').value = up.dpi; });
+    $('upLock').addEventListener('change', () => {
+      up.lock = $('upLock').checked;
+      if (up.lock && up.loaded && up.sx !== up.sy) setScale(up.sx, up.sx, null);
+    });
+    $('upBtnResetSize').addEventListener('click', () => {
+      if (!up.loaded) return;
+      setScale(1, 1, null);
+      toast(`Size reset to original ${up.origW} \u00d7 ${up.origH} px`);
+    });
+
+    // Replication controls
+    $('upMode').addEventListener('change', () => { up.mode = $('upMode').value; scheduleProcess(0); });
+    $('upThr').addEventListener('input', () => {
+      up.threshold = parseInt($('upThr').value, 10);
+      $('upLblThr').textContent = up.threshold;
+      scheduleProcess();
+    });
+    $('upBtnAuto').addEventListener('click', () => {
+      if (!up.loaded) return;
+      const lum = up.invert ? up.gray.map((v) => 255 - v) : up.gray;
+      const o = upOtsu(lum);
+      const t = clamp(Math.round(o + (255 - o) * 0.6), 40, 245);   // biased toward paper so thin anti-aliased lines survive
+      up.threshold = t;
+      $('upThr').value = t;
+      $('upLblThr').textContent = t;
+      scheduleProcess(0);
+    });
+    $('upEps').addEventListener('input', () => {
+      up.epsilon = parseFloat($('upEps').value);
+      $('upLblEps').textContent = `${up.epsilon.toFixed(2)} px`;
+      scheduleProcess();
+    });
+    $('upMin').addEventListener('input', () => {
+      up.minLen = parseInt($('upMin').value, 10);
+      $('upLblMin').textContent = `${up.minLen} px`;
+      scheduleProcess();
+    });
+    $('upLw').addEventListener('input', () => {
+      up.lineWidth = parseFloat($('upLw').value);
+      $('upLblLw').textContent = `${up.lineWidth.toFixed(2)} px`;
+      $('upPath').setAttribute('stroke-width', up.lineWidth);
+    });
+    $('upInvert').addEventListener('change', () => { up.invert = $('upInvert').checked; scheduleProcess(0); });
+    $('upUnderlayChk').addEventListener('change', () => {
+      $('upUnderlay').style.display = $('upUnderlayChk').checked ? '' : 'none';
+    });
+    $('upExpSvg').addEventListener('click', () => exportReplica('svg'));
+    $('upExpDxf').addEventListener('click', () => exportReplica('dxf'));
+    $('upExpPng').addEventListener('click', () => exportReplica('png'));
+
+    refreshDimUI(null);
+  })();
+  </script>
+
+  <script>
+  /**
+   * Image -> Parametric Drawing tab (3rd tab, additive module).
+   * Traces an uploaded JPEG/PNG into fine vector lines, then lets the user define labelled
+   * dimensions (same look and editing behaviour as the first tab). Editing a dimension stretches
+   * only the part of the drawing between its two points; the rest shifts with it.
+   * Does not modify any function or element of the other two tabs.
+   */
+  (function () {
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const SVGNS = 'http://www.w3.org/2000/svg';
+
+    // <PURE>
+    // Zhang-Suen thinning working only on a list of active foreground pixels (fast on line drawings).
+    // img: padded Uint8Array (1 px zero border), pw: padded width. Returns Int32Array of surviving pixel indices.
+    function upThin(img, pw) {
+      let n = 0;
+      for (let i = 0; i < img.length; i++) if (img[i]) n++;
+      let cur = new Int32Array(n);
+      for (let i = 0, k = 0; i < img.length; i++) if (img[i]) cur[k++] = i;
+      const del = new Int32Array(n);
+      let changed = true;
+      let guard = 0;
+      while (changed && guard++ < 600) {
+        changed = false;
+        for (let step = 0; step < 2; step++) {
+          let nd = 0;
+          for (let k = 0; k < cur.length; k++) {
+            const idx = cur[k];
+            const p2 = img[idx - pw], p3 = img[idx - pw + 1], p4 = img[idx + 1], p5 = img[idx + pw + 1];
+            const p6 = img[idx + pw], p7 = img[idx + pw - 1], p8 = img[idx - 1], p9 = img[idx - pw - 1];
+            const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+            if (B < 2 || B > 6) continue;
+            const A =
+              ((p2 === 0 && p3 === 1) ? 1 : 0) + ((p3 === 0 && p4 === 1) ? 1 : 0) +
+              ((p4 === 0 && p5 === 1) ? 1 : 0) + ((p5 === 0 && p6 === 1) ? 1 : 0) +
+              ((p6 === 0 && p7 === 1) ? 1 : 0) + ((p7 === 0 && p8 === 1) ? 1 : 0) +
+              ((p8 === 0 && p9 === 1) ? 1 : 0) + ((p9 === 0 && p2 === 1) ? 1 : 0);
+            if (A !== 1) continue;
+            if (step === 0) {
+              if (p2 * p4 * p6 !== 0 || p4 * p6 * p8 !== 0) continue;
+            } else {
+              if (p2 * p4 * p8 !== 0 || p2 * p6 * p8 !== 0) continue;
+            }
+            del[nd++] = idx;
+          }
+          if (nd) {
+            changed = true;
+            for (let k = 0; k < nd; k++) img[del[k]] = 0;
+            let m = 0;
+            for (let k = 0; k < cur.length; k++) {
+              const idx = cur[k];
+              if (img[idx]) cur[m++] = idx;
+            }
+            cur = cur.subarray(0, m);
+          }
+        }
+      }
+      return cur;
+    }
+
+    // Trace a thinned skeleton into ordered polylines. Points are in "traced pixel" coordinates
+    // where pixel (x, y) has its centre at (x + 0.5, y + 0.5). Junction pixels are shared by the
+    // branches that meet there so connectivity is preserved.
+    function upTraceSkeleton(skel, list, pw) {
+      const N = skel.length;
+      const off = [-pw, -pw + 1, 1, pw + 1, pw, pw - 1, -1, -pw - 1]; // N NE E SE S SW W NW
+      const ORD = [0, 2, 4, 6, 1, 3, 5, 7];                          // orthogonal first
+      const deg = new Uint8Array(N);
+      for (let k = 0; k < list.length; k++) {
+        const idx = list[k];
+        let cnt = 0, runs = 0;
+        let prevV = skel[idx + off[7]];
+        for (let d = 0; d < 8; d++) {
+          const v = skel[idx + off[d]];
+          cnt += v;
+          if (v === 1 && prevV === 0) runs++;
+          prevV = v;
+        }
+        deg[idx] = cnt === 0 ? 0 : (runs === 0 ? 2 : Math.min(runs, 8));
+      }
+      const visited = new Uint8Array(N);
+      const polys = [];
+      const toPt = (idx) => {
+        const y = (idx / pw) | 0;
+        return { x: idx - y * pw - 0.5, y: y - 0.5 };
+      };
+
+      function walk(s, q) {
+        const path = [s, q];
+        visited[q] = 1;
+        let prev = s, cur = q;
+        for (;;) {
+          let next = -1, node = -1;
+          for (let t = 0; t < 8; t++) {
+            const n = cur + off[ORD[t]];
+            if (!skel[n] || n === prev) continue;
+            if (deg[n] !== 2) {
+              if (node < 0) node = n;
+            } else if (!visited[n] && next < 0) {
+              next = n;
+            }
+          }
+          if (node >= 0) { path.push(node); break; }
+          if (next < 0) break;
+          visited[next] = 1;
+          path.push(next);
+          prev = cur;
+          cur = next;
+        }
+        return path;
+      }
+
+      // Pass 1: from endpoints / junctions
+      for (let k = 0; k < list.length; k++) {
+        const s = list[k];
+        const ds = deg[s];
+        if (ds === 2 || ds === 0) continue;
+        for (let t = 0; t < 8; t++) {
+          const q = s + off[ORD[t]];
+          if (!skel[q]) continue;
+          if (deg[q] === 2) {
+            if (visited[q]) continue;
+            polys.push({ pts: walk(s, q).map(toPt), closed: false, keep: false });
+          } else if (q > s) {
+            polys.push({ pts: [toPt(s), toPt(q)], closed: false, keep: true });
+          }
+        }
+      }
+
+      // Pass 2: isolated closed loops (circles, closed outlines)
+      for (let k = 0; k < list.length; k++) {
+        const s = list[k];
+        if (deg[s] !== 2 || visited[s]) continue;
+        const path = [s];
+        visited[s] = 1;
+        let cur = s;
+        for (;;) {
+          let nx = -1;
+          for (let t = 0; t < 8; t++) {
+            const q = cur + off[ORD[t]];
+            if (skel[q] && deg[q] === 2 && !visited[q]) { nx = q; break; }
+          }
+          if (nx < 0) break;
+          visited[nx] = 1;
+          path.push(nx);
+          cur = nx;
+        }
+        const fy = (s / pw) | 0, fx = s - fy * pw;
+        const ly = (cur / pw) | 0, lx = cur - ly * pw;
+        const closed = path.length >= 3 && Math.abs(fx - lx) <= 1 && Math.abs(fy - ly) <= 1;
+        const pts = path.map(toPt);
+        if (closed) pts.push({ x: pts[0].x, y: pts[0].y });
+        polys.push({ pts, closed, keep: false });
+      }
+      return polys;
+    }
+
+    // Marching squares with linear (sub-pixel) interpolation on the padded luminance field.
+    // Ink = value < T. Returns closed polygons in traced pixel coordinates.
+    function upMarch(eff, pw, ph, T) {
+      const adj = new Map();
+      const pos = new Map();
+      const SEG = [null, [[3, 2]], [[2, 1]], [[3, 1]], [[0, 1]], [[0, 1], [3, 2]], [[0, 2]], [[0, 3]],
+                   [[0, 3]], [[0, 2]], [[0, 3], [2, 1]], [[0, 1]], [[3, 1]], [[2, 1]], [[3, 2]], null];
+      function K(kind, x, y) {
+        const key = (y * pw + x) * 2 + kind;
+        if (!pos.has(key)) {
+          const a = y * pw + x;
+          const b = kind === 0 ? a + 1 : a + pw;
+          const fa = T - eff[a], fb = T - eff[b];
+          let t = fa / (fa - fb);
+          if (!isFinite(t)) t = 0.5;
+          t = clamp(t, 0, 1);
+          pos.set(key, kind === 0 ? [x + t - 0.5, y - 0.5] : [x - 0.5, y + t - 0.5]);
+        }
+        return key;
+      }
+      function EK(e, x, y) {
+        return e === 0 ? K(0, x, y) : e === 1 ? K(1, x + 1, y) : e === 2 ? K(0, x, y + 1) : K(1, x, y);
+      }
+      function link(k1, k2) {
+        let a = adj.get(k1); if (!a) adj.set(k1, a = []); a.push(k2);
+        let b = adj.get(k2); if (!b) adj.set(k2, b = []); b.push(k1);
+      }
+      for (let y = 0; y < ph - 1; y++) {
+        for (let x = 0; x < pw - 1; x++) {
+          const i = y * pw + x;
+          const v0 = eff[i], v1 = eff[i + 1], v2 = eff[i + pw + 1], v3 = eff[i + pw];
+          if (v0 >= T && v1 >= T && v2 >= T && v3 >= T) continue;
+          const code = (v0 < T ? 8 : 0) + (v1 < T ? 4 : 0) + (v2 < T ? 2 : 0) + (v3 < T ? 1 : 0);
+          const segs = SEG[code];
+          if (!segs) continue;
+          for (let s = 0; s < segs.length; s++) {
+            link(EK(segs[s][0], x, y), EK(segs[s][1], x, y));
+          }
+        }
+      }
+      const used = new Set();
+      const polys = [];
+      for (const startKey of adj.keys()) {
+        if (used.has(startKey)) continue;
+        const keys = [startKey];
+        used.add(startKey);
+        let cur = startKey;
+        let closed = false;
+        for (;;) {
+          const nbrs = adj.get(cur);
+          let next = -1;
+          for (let j = 0; j < nbrs.length; j++) {
+            if (!used.has(nbrs[j])) { next = nbrs[j]; break; }
+          }
+          if (next === -1) { closed = keys.length > 2 && nbrs.indexOf(startKey) !== -1; break; }
+          used.add(next);
+          keys.push(next);
+          cur = next;
+        }
+        const pts = keys.map((k) => { const p = pos.get(k); return { x: p[0], y: p[1] }; });
+        if (closed) pts.push({ x: pts[0].x, y: pts[0].y });
+        polys.push({ pts, closed, keep: false });
+      }
+      return polys;
+    }
+
+    function upOtsu(lum) {
+      const hist = new Float64Array(256);
+      for (let i = 0; i < lum.length; i++) hist[clamp(lum[i] | 0, 0, 255)]++;
+      const total = lum.length;
+      let sum = 0;
+      for (let t = 0; t < 256; t++) sum += t * hist[t];
+      let wB = 0, sumB = 0, best = -1, thr = 128;
+      for (let t = 0; t < 256; t++) {
+        wB += hist[t];
+        if (!wB) continue;
+        const wF = total - wB;
+        if (!wF) break;
+        sumB += t * hist[t];
+        const mB = sumB / wB, mF = (sum - sumB) / wF;
+        const between = wB * wF * (mB - mF) * (mB - mF);
+        if (between > best) { best = between; thr = t; }
+      }
+      return thr;
+    }
+    // </PURE>
+
+    // <AXIS>
+    // A drawing axis is a piecewise-linear map from base coordinates (px) to current coordinates (px).
+    // bp = sorted breakpoints, sc = scale factor of every segment between consecutive breakpoints.
+    function axInit(ext) { return { bp: [0, ext], sc: [1] }; }
+    function axCum(ax) {
+      const c = [0];
+      for (let i = 0; i < ax.sc.length; i++) c.push(c[i] + (ax.bp[i + 1] - ax.bp[i]) * ax.sc[i]);
+      return c;
+    }
+    function axMap(ax, t, cum) {
+      const bp = ax.bp, n = ax.sc.length;
+      if (t <= bp[0]) return t - bp[0];
+      if (t >= bp[n]) return cum[n] + (t - bp[n]);
+      let lo = 0, hi = n - 1;
+      while (lo < hi) { const m = (lo + hi + 1) >> 1; if (bp[m] <= t) lo = m; else hi = m - 1; }
+      return cum[lo] + (t - bp[lo]) * ax.sc[lo];
+    }
+    function axInv(ax, v, cum) {
+      const bp = ax.bp, n = ax.sc.length;
+      if (v <= 0) return bp[0] + v;
+      if (v >= cum[n]) return bp[n] + (v - cum[n]);
+      let lo = 0, hi = n - 1;
+      while (lo < hi) { const m = (lo + hi + 1) >> 1; if (cum[m] <= v) lo = m; else hi = m - 1; }
+      return bp[lo] + (v - cum[lo]) / ax.sc[lo];
+    }
+    // Ensure a breakpoint exists at t (splitting a segment keeps its scale); returns its index.
+    function axSplit(ax, t) {
+      const bp = ax.bp, eps = 1e-6;
+      t = clamp(t, bp[0], bp[bp.length - 1]);
+      for (let i = 0; i < bp.length; i++) if (Math.abs(bp[i] - t) < eps) return i;
+      let i = 0;
+      while (i < bp.length - 1 && bp[i + 1] < t) i++;
+      bp.splice(i + 1, 0, t);
+      ax.sc.splice(i + 1, 0, ax.sc[i]);
+      return i + 1;
+    }
+    function axIndex(ax, t) {
+      for (let i = 0; i < ax.bp.length; i++) if (Math.abs(ax.bp[i] - t) < 1e-6) return i;
+      return -1;
+    }
+    // Make the span [a, b] exactly targetLen long by scaling every segment inside it equally.
+    function axSetSpan(ax, a, b, targetLen) {
+      const ia = axIndex(ax, a), ib = axIndex(ax, b);
+      if (ia < 0 || ib <= ia) return false;
+      let cur = 0;
+      for (let i = ia; i < ib; i++) cur += (ax.bp[i + 1] - ax.bp[i]) * ax.sc[i];
+      if (!(cur > 0) || !(targetLen > 0)) return false;
+      const f = targetLen / cur;
+      for (let i = ia; i < ib; i++) ax.sc[i] *= f;
+      return true;
+    }
+    // </AXIS>
+
+    // ------------------------------------------------------------------ state
+    const MAX_TRACE_DIM = 4096;
+    const p = {
+      tabActive: false, loaded: false,
+      fileName: '', fileType: '', fileSize: 0,
+      origW: 0, origH: 0, tw: 0, th: 0, gray: null,
+      threshold: 175, invert: false, eps: 0.6, minLen: 3, lineWeight: 2.1, k: 1,
+      paths: [], extX: 0, extY: 0,
+      ax: { x: null, y: null }, dims: [], nextId: 1,
+      mode: 'none', picks: [], dragRect: null,
+      zoom: 1, panX: 0, panY: 0, showGrid: true,
+      mv: null, pbox: [], prims: null, s: 1
+    };
+
+    // ------------------------------------------------------------------ helpers
+    let toastTimer = null;
+    function toast(msg) {
+      $('ipToastText').textContent = msg;
+      const el = $('ipToast');
+      el.classList.remove('opacity-0', 'translate-y-2');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('opacity-0', 'translate-y-2'), 3400);
+    }
+    function mk(tag, attrs) {
+      const el = document.createElementNS(SVGNS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      return el;
+    }
+    const fmtIn = (v) => String(Math.round(v * 100) / 100);
+    const fmtLbl = (v) => String(Math.round(v * 10) / 10);
+    const spanMM = (d) => {
+      const ax = d.axis === 'x' ? p.ax.x : p.ax.y;
+      const cum = axCum(ax);
+      return (axMap(ax, d.b, cum) - axMap(ax, d.a, cum)) * p.k;
+    };
+    function setHint(msg) {
+      const h = $('ipHint');
+      if (msg) { h.textContent = msg; h.classList.remove('hidden'); } else h.classList.add('hidden');
+    }
+
+    // ------------------------------------------------------------------ rendering
+    function render() {
+      const root = $('ipRoot');
+      root.innerHTML = '';
+      if (!p.loaded) return;
+      const prims = { lines: [], polylines: [], solids: [], texts: [] };
+      p.prims = prims;
+      const bnd = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      const bb = (x, y) => {
+        if (x < bnd.x0) bnd.x0 = x; if (x > bnd.x1) bnd.x1 = x;
+        if (y < bnd.y0) bnd.y0 = y; if (y > bnd.y1) bnd.y1 = y;
+      };
+      const k = p.k;
+      const s = clamp(Math.max(p.extX, p.extY) * k / 1000, 0.02, 100);
+      p.s = s;
+      const lw = p.lineWeight * s;
+      const hlw = Math.max(1.2 * s, lw * 0.72);
+      const cumX = axCum(p.ax.x), cumY = axCum(p.ax.y);
+      const MX = (t) => axMap(p.ax.x, t, cumX) * k;
+      const MY = (t) => axMap(p.ax.y, t, cumY) * k;
+
+      // --- traced geometry (one SVG path, recorded as CAD polylines)
+      const parts = [];
+      const mv = [];
+      p.pbox = [];
+      for (let i = 0; i < p.paths.length; i++) {
+        const pa = p.paths[i];
+        if (pa.erased) { p.pbox.push(null); continue; }
+        const xy = pa.xy, n = xy.length / 2;
+        const pts = new Array(n);
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        let d = '';
+        for (let j = 0; j < n; j++) {
+          const X = MX(xy[2 * j]), Y = MY(xy[2 * j + 1]);
+          pts[j] = { x: X, y: Y };
+          mv.push(X, Y);
+          if (X < x0) x0 = X; if (X > x1) x1 = X;
+          if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+          d += (j ? 'L' : 'M') + X.toFixed(2) + ' ' + (-Y).toFixed(2);
+        }
+        if (pa.closed) d += 'Z';
+        parts.push(d);
+        p.pbox.push([x0, y0, x1, y1]);
+        bb(x0, y0); bb(x1, y1);
+        prims.polylines.push({ points: pts, closed: pa.closed, layer: 'GEOMETRY' });
+      }
+      p.mv = mv;
+      if (parts.length) {
+        root.appendChild(mk('path', {
+          d: parts.join(''), fill: 'none', stroke: '#000000', 'stroke-width': lw,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+        }));
+      }
+
+      // --- dimension primitives
+      const dimLayer = mk('g', { id: 'ip-dimensions' });
+      root.appendChild(dimLayer);
+      function addLine(x1, y1, x2, y2, w) {
+        prims.lines.push({ x1, y1, x2, y2, layer: 'DIMENSIONS' });
+        bb(x1, y1); bb(x2, y2);
+        dimLayer.appendChild(mk('line', {
+          x1: x1.toFixed(2), y1: (-y1).toFixed(2), x2: x2.toFixed(2), y2: (-y2).toFixed(2),
+          stroke: '#000000', 'stroke-width': w, 'stroke-linecap': 'round'
+        }));
+      }
+      function addArrow(tx, ty, ang, len, wid) {
+        const cos = Math.cos(ang), sin = Math.sin(ang);
+        const bx = tx - len * cos, by = ty - len * sin;
+        const px = -sin * (wid / 2), py = cos * (wid / 2);
+        const p1 = { x: tx, y: ty }, p2 = { x: bx + px, y: by + py }, p3 = { x: bx - px, y: by - py };
+        prims.solids.push({ points: [p1, p2, p3], layer: 'DIMENSIONS' });
+        bb(p2.x, p2.y); bb(p3.x, p3.y);
+        dimLayer.appendChild(mk('polygon', {
+          points: [p1, p2, p3].map((q) => q.x.toFixed(2) + ',' + (-q.y).toFixed(2)).join(' '),
+          fill: '#000000', stroke: 'none'
+        }));
+      }
+      function addText(x, y, str, rot, dimId) {
+        prims.texts.push({ x, y, height: 34 * s, text: String(str), rotation: rot, layer: 'DIMENSIONS' });
+        bb(x - 60 * s, y - 60 * s); bb(x + 60 * s, y + 60 * s);
+        const g = mk('g', { class: 'dim-interactive' });
+        const hitW = (rot === 0 ? 84 : 44) * s, hitH = (rot === 0 ? 44 : 84) * s;
+        g.appendChild(mk('rect', {
+          x: (x - hitW / 2).toFixed(2), y: (-y - hitH / 2).toFixed(2), width: hitW.toFixed(2), height: hitH.toFixed(2),
+          rx: (6 * s).toFixed(2), fill: 'transparent', stroke: 'transparent', 'stroke-width': (1.5 * s).toFixed(2),
+          class: 'dim-hit-box'
+        }));
+        g.addEventListener('dblclick', (e) => { e.stopPropagation(); openEditor(dimId, x, -y); });
+        const t = mk('text', {
+          x: x.toFixed(2), y: (-y).toFixed(2), fill: '#000000', 'font-family': 'Inter, Arial, sans-serif',
+          'font-size': (38 * s).toFixed(2) + 'px', 'font-weight': '400', 'text-anchor': 'middle',
+          'dominant-baseline': 'central',
+          transform: rot !== 0 ? `rotate(${-rot} ${x.toFixed(2)} ${(-y).toFixed(2)})` : ''
+        });
+        t.textContent = String(str);
+        g.appendChild(t);
+        dimLayer.appendChild(g);
+      }
+
+      for (const d of p.dims) {
+        const hz = d.axis === 'x';
+        const A = hz ? MX(d.a) : MY(d.a);
+        const B = hz ? MX(d.b) : MY(d.b);
+        const L = hz ? MY(d.p) : MX(d.p);                 // position of the dimension line
+        const qa = hz ? MY(d.qa) : MX(d.qa);              // anchor of the first point (perpendicular coord)
+        const qb = hz ? MY(d.qb) : MX(d.qb);
+        const len = B - A;
+        const mid = (A + B) / 2;
+        const gap = 54 * s, ext0 = 8 * s, ext1 = 30 * s;
+        const alen = Math.min(24 * s, Math.max(len / 3, 1e-6));
+        const awid = 7.5 * s;
+        const label = fmtLbl(len);
+
+        // extension lines (from each anchor toward and slightly past the dimension line)
+        const ext = (pos, q) => {
+          const dir = L >= q ? 1 : -1;
+          if (hz) addLine(pos, q + dir * ext0, pos, L + dir * ext1, hlw);
+          else addLine(q + dir * ext0, pos, L + dir * ext1, pos, hlw);
+        };
+        ext(A, qa); ext(B, qb);
+
+        const gapped = len > 2 * gap + alen;
+        const seg = (u1, u2) => { if (hz) addLine(u1, L, u2, L, hlw); else addLine(L, u1, L, u2, hlw); };
+        if (gapped) { seg(A + 6 * s, mid - gap); seg(mid + gap, B - 6 * s); }
+        else seg(A, B);
+
+        if (hz) {
+          addArrow(A, L, Math.PI, alen, awid);
+          addArrow(B, L, 0, alen, awid);
+          addText(mid, gapped ? L : L + 36 * s, label, 0, d.id);
+        } else {
+          addArrow(L, A, -Math.PI / 2, alen, awid);
+          addArrow(L, B, Math.PI / 2, alen, awid);
+          addText(gapped ? L : L - 36 * s, mid, label, 90, d.id);
+        }
+      }
+
+      // --- fit the viewBox around everything
+      if (isFinite(bnd.x0)) {
+        const w = bnd.x1 - bnd.x0, h = bnd.y1 - bnd.y0;
+        const m = 0.06 * Math.max(w, h) + 40 * s;
+        $('ipSvg').setAttribute('viewBox', `${(bnd.x0 - m).toFixed(2)} ${(-bnd.y1 - m).toFixed(2)} ${(w + 2 * m).toFixed(2)} ${(h + 2 * m).toFixed(2)}`);
+      }
+      const W = (MX(p.extX) - MX(0)), H = (MY(p.extY) - MY(0));
+      $('ipBadge').textContent = `${fmtIn(W)} \u00d7 ${fmtIn(H)} mm | ${p.dims.length} dimension${p.dims.length === 1 ? '' : 's'}`;
+      drawOverlay();
+      applyView();
+    }
+
+    function drawOverlay() {
+      const ov = $('ipOverlay');
+      ov.innerHTML = '';
+      const r = 6 * p.s;
+      for (const q of p.picks) {
+        ov.appendChild(mk('circle', { cx: q.x.toFixed(2), cy: (-q.y).toFixed(2), r, fill: 'none', stroke: '#0284c7', 'stroke-width': 2 * p.s }));
+        ov.appendChild(mk('circle', { cx: q.x.toFixed(2), cy: (-q.y).toFixed(2), r: r / 3, fill: '#0284c7' }));
+      }
+      if (p.dragRect) {
+        const d = p.dragRect;
+        ov.appendChild(mk('rect', {
+          x: Math.min(d.x0, d.x1), y: -Math.max(d.y0, d.y1),
+          width: Math.abs(d.x1 - d.x0), height: Math.abs(d.y1 - d.y0),
+          fill: 'rgba(225,29,72,0.10)', stroke: '#e11d48', 'stroke-width': 1.5 * p.s, 'stroke-dasharray': `${6 * p.s} ${4 * p.s}`
+        }));
+      }
+    }
+
+    function applyView() {
+      $('ipPanZoom').setAttribute('transform',
+        `translate(${p.panX.toFixed(2)}, ${p.panY.toFixed(2)}) scale(${p.zoom.toFixed(4)})`);
+      if (p.tabActive) $('zoomLabel').textContent = `${Math.round(p.zoom * 100)}%`;
+    }
+
+    // ------------------------------------------------------------------ dimension list (sidebar)
+    function buildDimList() {
+      const box = $('ipDimList');
+      if (!p.dims.length) {
+        box.innerHTML = '<p class="col-span-2 lg:col-span-1 text-xs text-slate-400">' +
+          (p.loaded ? 'No dimensions yet. Use the buttons below to add one.' : 'Upload an image to create its dimensions.') + '</p>';
+        return;
+      }
+      box.innerHTML = p.dims.map((d) => `
+        <div class="p-3 rounded-xl ${d.core ? 'bg-sky-50/70 border-sky-200' : 'bg-slate-50 border-slate-200/90'} border focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/15 transition">
+          <div class="flex items-center justify-between mb-1 gap-2">
+            <label for="ipDim_${d.id}" class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full ${d.core ? 'bg-sky-600' : 'bg-slate-800'}"></span>${d.label}
+            </label>
+            <span class="flex items-center gap-1.5">
+              <span class="text-[11px] font-mono-cad text-slate-400">${d.axis === 'x' ? 'Horizontal' : 'Vertical'}</span>
+              <button type="button" data-ip-del="${d.id}" title="Remove dimension" class="text-slate-400 hover:text-rose-600 text-sm leading-none px-1">&times;</button>
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="ipDim_${d.id}" data-ip-dim="${d.id}" type="number" step="any" min="0" value="${fmtIn(spanMM(d))}" style="user-select:text"
+              class="w-full bg-white border ${d.core ? 'border-sky-300' : 'border-slate-300'} rounded-lg px-2.5 py-1.5 text-sm font-mono-cad font-semibold text-slate-900 focus:outline-none focus:border-sky-500" />
+            <span class="text-xs font-mono-cad text-slate-500">mm</span>
+          </div>
+        </div>`).join('');
+    }
+    function refreshDimInputs(skipId) {
+      for (const d of p.dims) {
+        const el = $('ipDim_' + d.id);
+        if (el && d.id !== skipId) el.value = fmtIn(spanMM(d));
+      }
+    }
+
+    // ------------------------------------------------------------------ dimension logic
+    function setDimValue(id, mm) {
+      const d = p.dims.find((q) => q.id === id);
+      if (!d || !(mm > 0) || mm > 1e7) return false;
+      const ax = d.axis === 'x' ? p.ax.x : p.ax.y;
+      if (!axSetSpan(ax, d.a, d.b, mm / p.k)) return false;
+      render();
+      return true;
+    }
+
+    function resetDims() {
+      p.ax.x = axInit(p.extX);
+      p.ax.y = axInit(p.extY);
+      p.dims = [];
+      p.nextId = 1;
+      const off = 0.09 * Math.max(p.extX, p.extY);
+      p.dims.push({ id: p.nextId++, axis: 'x', a: 0, b: p.extX, qa: p.extY, qb: p.extY, p: p.extY + off, label: 'Overall Width (W)', core: true });
+      p.dims.push({ id: p.nextId++, axis: 'y', a: 0, b: p.extY, qa: 0, qb: 0, p: -off, label: 'Overall Height (H)', core: true });
+    }
+
+    function createDim(axis, P1, P2) {
+      const k = p.k;
+      const cumX = axCum(p.ax.x), cumY = axCum(p.ax.y);
+      const b1 = { x: axInv(p.ax.x, P1.x / k, cumX), y: axInv(p.ax.y, P1.y / k, cumY) };
+      const b2 = { x: axInv(p.ax.x, P2.x / k, cumX), y: axInv(p.ax.y, P2.y / k, cumY) };
+      const hz = axis === 'x';
+      let lo = hz ? b1 : b1, hi = b2;
+      if ((hz ? b1.x : b1.y) > (hz ? b2.x : b2.y)) { lo = b2; hi = b1; }
+      const a = hz ? lo.x : lo.y, b = hz ? hi.x : hi.y;
+      if (b - a < 1e-3) { toast(hz ? 'Pick two points with different horizontal positions.' : 'Pick two points with different vertical positions.'); return false; }
+      const ax = hz ? p.ax.x : p.ax.y;
+      axSplit(ax, a); axSplit(ax, b);
+      const same = p.dims.filter((d) => d.axis === axis).length;
+      const off = 0.09 * Math.max(p.extX, p.extY);
+      const id = p.nextId++;
+      p.dims.push({
+        id, axis, a, b,
+        qa: hz ? lo.y : lo.x, qb: hz ? hi.y : hi.x,
+        p: hz ? p.extY + off * (1 + same) : -off * (1 + same),
+        label: (hz ? 'Horizontal Dim ' : 'Vertical Dim ') + id, core: false
+      });
+      render();
+      buildDimList();
+      toast(`${hz ? 'Horizontal' : 'Vertical'} dimension added: ${fmtIn(spanMM(p.dims[p.dims.length - 1]))} mm`);
+      return true;
+    }
+
+    // ------------------------------------------------------------------ inline editor
+    let activeDim = null;
+    function openEditor(id, svgX, svgY) {
+      const d = p.dims.find((q) => q.id === id);
+      if (!d) return;
+      activeDim = id;
+      $('ipEditorLabel').textContent = d.label + ' (mm)';
+      $('ipEditorInput').value = fmtIn(spanMM(d));
+      const ctm = $('ipPanZoom').getScreenCTM();
+      const pt = $('ipSvg').createSVGPoint();
+      pt.x = svgX; pt.y = svgY;
+      const sp = pt.matrixTransform(ctm);
+      const rect = $('ipViewport').getBoundingClientRect();
+      const left = Math.min(Math.max(12, sp.x - rect.left - 112), rect.width - 236);
+      const top = Math.min(Math.max(12, sp.y - rect.top - 40), rect.height - 100);
+      const ed = $('ipEditor');
+      ed.style.left = left + 'px'; ed.style.top = top + 'px';
+      ed.classList.remove('hidden');
+      $('ipEditorInput').focus();
+      $('ipEditorInput').select();
+    }
+    function commitEditor() {
+      if (activeDim === null) return;
+      const v = parseFloat($('ipEditorInput').value);
+      if (v > 0) {
+        setDimValue(activeDim, v);
+        refreshDimInputs(null);
+      }
+      $('ipEditor').classList.add('hidden');
+      activeDim = null;
+    }
+    $('ipEditorApply').addEventListener('click', commitEditor);
+    $('ipEditorInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commitEditor();
+      if (e.key === 'Escape') { $('ipEditor').classList.add('hidden'); activeDim = null; }
+    });
+
+    // ------------------------------------------------------------------ tracing
+    function trace() {
+      const t0 = performance.now();
+      const tw = p.tw, th = p.th, pw = tw + 2, ph = th + 2;
+      const T = p.threshold;
+      const lum = p.invert ? p.gray.map((v) => 255 - v) : p.gray;
+      const eff = new Float32Array(pw * ph).fill(255);
+      const low = T * 0.72;
+      for (let y = 0; y < th; y++) {
+        const row = y * tw;
+        for (let x = 0; x < tw; x++) {
+          const i = row + x, v = lum[i];
+          if (v >= T) continue;
+          let dark = v < low;
+          if (!dark && x > 0 && y > 0 && x < tw - 1 && y < th - 1) {
+            const avg = (lum[i - tw - 1] + lum[i - tw] + lum[i - tw + 1] + lum[i - 1] + v + lum[i + 1] +
+                         lum[i + tw - 1] + lum[i + tw] + lum[i + tw + 1]) / 9;
+            dark = v < avg - 6;
+          }
+          if (dark) eff[(y + 1) * pw + (x + 1)] = v;
+        }
+      }
+      const bin = new Uint8Array(pw * ph);
+      for (let i = 0; i < bin.length; i++) if (eff[i] < T) bin[i] = 1;
+      const list = upThin(bin, pw);
+      const polys = upTraceSkeleton(bin, list, pw);
+
+      const kx = p.origW / tw, ky = p.origH / th;
+      const raw = [];
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, pts = 0;
+      for (const poly of polys) {
+        if (!poly.keep && poly.pts.length < p.minLen) continue;
+        const simp = simplifyPoints(poly.pts, p.eps);
+        if (simp.length < 2) continue;
+        if (poly.closed && simp.length < 4) continue;
+        const xy = new Float32Array(simp.length * 2);
+        for (let j = 0; j < simp.length; j++) {
+          const x = simp[j].x * kx, y = simp[j].y * ky;
+          xy[2 * j] = x; xy[2 * j + 1] = y;
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+        raw.push({ xy, closed: poly.closed });
+        pts += simp.length;
+      }
+      // Base coordinates: origin at the bottom-left of the drawing, Y up (CAD convention)
+      p.paths = raw.map((r) => {
+        const xy = r.xy;
+        for (let j = 0; j < xy.length; j += 2) { xy[j] = xy[j] - minX; xy[j + 1] = maxY - xy[j + 1]; }
+        return { xy, closed: r.closed, erased: false };
+      });
+      p.extX = raw.length ? maxX - minX : 0;
+      p.extY = raw.length ? maxY - minY : 0;
+      $('ipStats').textContent = `${raw.length} paths \u2022 ${pts} vertices \u2022 ${Math.round(performance.now() - t0)} ms`;
+    }
+
+    let procTimer = null, procToken = 0;
+    function scheduleProcess(delay) {
+      clearTimeout(procTimer);
+      procTimer = setTimeout(runProcess, delay === undefined ? 160 : delay);
+    }
+    function runProcess() {
+      if (!p.loaded) return;
+      const token = ++procToken;
+      $('ipBusy').style.display = 'flex';
+      setTimeout(() => {
+        if (token !== procToken) return;
+        try {
+          setMode('none');
+          trace();
+          if (!(p.extX > 0 && p.extY > 0)) {
+            p.dims = []; p.paths = [];
+            toast('No lines found. Adjust the ink threshold or the light/dark option.');
+          } else {
+            resetDims();
+          }
+          p.zoom = 1; p.panX = 0; p.panY = 0;
+          render();
+          buildDimList();
+        } catch (err) {
+          console.error(err);
+          toast('Could not build a drawing from this image.');
+        }
+        $('ipBusy').style.display = 'none';
+      }, 30);
+    }
+
+    // ------------------------------------------------------------------ file loading
+    function isAccepted(f) {
+      return /^image\/(jpeg|png)$/.test(f.type || '') || /\.(jpe?g|png)$/i.test(f.name || '');
+    }
+    function loadFile(file) {
+      if (!file) return;
+      if (!isAccepted(file)) { toast('Unsupported file. Please upload a JPEG or PNG image.'); return; }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try { ingest(img, file); } catch (err) { console.error(err); toast('Could not read this image.'); }
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); toast('Could not decode this image file.'); };
+      img.src = url;
+    }
+    function ingest(img, file) {
+      const W = img.naturalWidth, H = img.naturalHeight;
+      if (!W || !H) throw new Error('Empty image');
+      const ratio = Math.min(1, MAX_TRACE_DIM / Math.max(W, H));
+      const tw = Math.max(1, Math.round(W * ratio)), th = Math.max(1, Math.round(H * ratio));
+      const c = document.createElement('canvas');
+      c.width = tw; c.height = th;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tw, th);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, tw, th);
+      const raw = ctx.getImageData(0, 0, tw, th).data;
+      const gray = new Float32Array(tw * th);
+      let sum = 0;
+      for (let i = 0, q = 0; i < raw.length; i += 4, q++) {
+        const g = 0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2];
+        gray[q] = g; sum += g;
+      }
+      p.fileName = file.name; p.fileSize = file.size;
+      p.fileType = file.type || (/png$/i.test(file.name) ? 'image/png' : 'image/jpeg');
+      p.origW = W; p.origH = H; p.tw = tw; p.th = th; p.gray = gray;
+      p.loaded = true;
+      p.invert = (sum / gray.length) < 110;
+      $('ipInvert').checked = p.invert;
+      p.threshold = 175; $('ipThr').value = 175; $('ipLblThr').textContent = '175';
+      $('ipEmpty').style.display = 'none';
+      const info = $('ipFileInfo');
+      info.textContent = `${file.name} \u2022 ${W} \u00d7 ${H} px \u2022 ${p.fileType.replace('image/', '').toUpperCase()}`;
+      info.classList.remove('hidden');
+      const note = $('ipNote');
+      if (ratio < 1) {
+        note.textContent = `Large image: lines are detected at ${tw} \u00d7 ${th} px and mapped back onto the full ${W} \u00d7 ${H} px size.`;
+        note.classList.remove('hidden');
+      } else note.classList.add('hidden');
+      runProcess();
+      toast(`Building parametric drawing from "${file.name}"`);
+    }
+
+    // ------------------------------------------------------------------ modes (pick / erase)
+    function setMode(m) {
+      p.mode = m; p.picks = []; p.dragRect = null;
+      const vp = $('ipViewport');
+      vp.classList.toggle('cursor-crosshair', m !== 'none');
+      vp.classList.toggle('cursor-grab', m === 'none');
+      $('ipBtnErase').classList.toggle('bg-rose-100', m === 'erase');
+      $('ipBtnAddH').classList.toggle('ring-2', m === 'pickx');
+      $('ipBtnAddV').classList.toggle('ring-2', m === 'picky');
+      if (m === 'pickx' || m === 'picky') setHint(`Click point 1 of 2 for the ${m === 'pickx' ? 'horizontal' : 'vertical'} dimension (Esc to cancel)`);
+      else if (m === 'erase') setHint('Drag a box over what to erase (Esc to cancel)');
+      else setHint('');
+      if (p.loaded) drawOverlay();
+    }
+
+    function toMM(cx, cy) {
+      const ctm = $('ipPanZoom').getScreenCTM();
+      const pt = $('ipSvg').createSVGPoint();
+      pt.x = cx; pt.y = cy;
+      const q = pt.matrixTransform(ctm.inverse());
+      return { x: q.x, y: -q.y, scale: ctm.a };
+    }
+
+    function handlePick(e) {
+      const m = toMM(e.clientX, e.clientY);
+      let X = m.x, Y = m.y;
+      const thr2 = Math.pow(14 / m.scale, 2);
+      let best = thr2;
+      const mv = p.mv;
+      for (let i = 0; i < mv.length; i += 2) {
+        const dx = mv[i] - m.x, dy = mv[i + 1] - m.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < best) { best = d2; X = mv[i]; Y = mv[i + 1]; }
+      }
+      p.picks.push({ x: X, y: Y });
+      if (p.picks.length === 1) {
+        setHint(`Click point 2 of 2 for the ${p.mode === 'pickx' ? 'horizontal' : 'vertical'} dimension (Esc to cancel)`);
+        drawOverlay();
+      } else {
+        const axis = p.mode === 'pickx' ? 'x' : 'y';
+        const [P1, P2] = p.picks;
+        const ok = createDim(axis, P1, P2);
+        setMode('none');
+        if (!ok) drawOverlay();
+      }
+    }
+
+    function doErase(r) {
+      const x0 = Math.min(r.x0, r.x1), x1 = Math.max(r.x0, r.x1);
+      const y0 = Math.min(r.y0, r.y1), y1 = Math.max(r.y0, r.y1);
+      let n = 0;
+      for (let i = 0; i < p.paths.length; i++) {
+        const b = p.pbox[i];
+        if (!b || p.paths[i].erased) continue;
+        if (b[0] >= x0 && b[2] <= x1 && b[1] >= y0 && b[3] <= y1) { p.paths[i].erased = true; n++; }
+      }
+      render();
+      toast(n ? `Erased ${n} line path${n === 1 ? '' : 's'}` : 'Nothing fully inside that box. Draw a larger box.');
+    }
+
+    // ------------------------------------------------------------------ pan / zoom / pointer
+    const vp = $('ipViewport');
+    function rootPoint(cx, cy) {
+      const ctm = $('ipSvg').getScreenCTM();
+      const pt = $('ipSvg').createSVGPoint();
+      pt.x = cx; pt.y = cy;
+      return { q: pt.matrixTransform(ctm.inverse()), a: ctm.a };
+    }
+    function zoomAt(cx, cy, f) {
+      const { q } = rootPoint(cx, cy);
+      const z0 = p.zoom, z1 = clamp(z0 * f, 0.2, 40);
+      p.panX = q.x - (q.x - p.panX) * (z1 / z0);
+      p.panY = q.y - (q.y - p.panY) * (z1 / z0);
+      p.zoom = z1;
+      applyView();
+    }
+    function zoomCentre(f) {
+      const r = vp.getBoundingClientRect();
+      zoomAt(r.left + r.width / 2, r.top + r.height / 2, f);
+    }
+    vp.addEventListener('wheel', (e) => {
+      if (!p.loaded) return;
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 0.9);
+    }, { passive: false });
+
+    let ptr = null;
+    vp.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (!$('ipEditor').contains(e.target)) { $('ipEditor').classList.add('hidden'); activeDim = null; }
+      if (!p.loaded) return;
+      if (e.target.closest && e.target.closest('button, #ipEditor, .dim-interactive')) return;
+      ptr = { x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, moved: false };
+      if (p.mode === 'erase') {
+        const m = toMM(e.clientX, e.clientY);
+        p.dragRect = { x0: m.x, y0: m.y, x1: m.x, y1: m.y };
+      }
+      try { vp.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    });
+    vp.addEventListener('pointermove', (e) => {
+      if (!ptr) return;
+      if (!ptr.moved && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 4) ptr.moved = true;
+      if (p.mode === 'erase' && p.dragRect) {
+        const m = toMM(e.clientX, e.clientY);
+        p.dragRect.x1 = m.x; p.dragRect.y1 = m.y;
+        drawOverlay();
+      } else if (ptr.moved) {
+        const a = $('ipSvg').getScreenCTM().a;
+        p.panX += (e.clientX - ptr.lx) / a;
+        p.panY += (e.clientY - ptr.ly) / a;
+        applyView();
+      }
+      ptr.lx = e.clientX; ptr.ly = e.clientY;
+    });
+    function endPtr(e, cancelled) {
+      if (!ptr) return;
+      const was = ptr;
+      ptr = null;
+      if (cancelled) { p.dragRect = null; if (p.loaded) drawOverlay(); return; }
+      if (p.mode === 'erase' && p.dragRect) {
+        const r = p.dragRect;
+        p.dragRect = null;
+        if (was.moved) { setMode('none'); doErase(r); } else drawOverlay();
+      } else if (!was.moved && (p.mode === 'pickx' || p.mode === 'picky')) {
+        handlePick(e);
+      }
+    }
+    vp.addEventListener('pointerup', (e) => endPtr(e, false));
+    vp.addEventListener('pointercancel', (e) => endPtr(e, true));
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && p.tabActive && p.mode !== 'none') setMode('none');
+    });
+
+    // ------------------------------------------------------------------ exports
+    const baseName = () => (p.fileName || 'image').replace(/\.[^/.]+$/, '');
+    function currentSize() {
+      const k = p.k;
+      const cx = axCum(p.ax.x), cy = axCum(p.ax.y);
+      return {
+        w: Math.round((axMap(p.ax.x, p.extX, cx) - axMap(p.ax.x, 0, cx)) * k),
+        h: Math.round((axMap(p.ax.y, p.extY, cy) - axMap(p.ax.y, 0, cy)) * k)
+      };
+    }
+
+    function buildDxf() {
+      const out = [];
+      const push = (c, v) => { out.push(String(c).trim()); out.push(String(v)); };
+      push(0, 'SECTION'); push(2, 'HEADER');
+      push(9, '$ACADVER'); push(1, 'AC1009');
+      push(9, '$INSUNITS'); push(70, 4);
+      push(9, '$MEASUREMENT'); push(70, 1);
+      push(0, 'ENDSEC');
+      push(0, 'SECTION'); push(2, 'TABLES');
+      push(0, 'TABLE'); push(2, 'LAYER'); push(70, 2);
+      for (const l of [{ n: 'GEOMETRY', c: 7 }, { n: 'DIMENSIONS', c: 7 }]) {
+        push(0, 'LAYER'); push(2, l.n); push(70, 0); push(62, l.c); push(6, 'CONTINUOUS');
+      }
+      push(0, 'ENDTAB'); push(0, 'ENDSEC');
+      push(0, 'SECTION'); push(2, 'ENTITIES');
+      const P = p.prims;
+      for (const ln of P.lines) {
+        push(0, 'LINE'); push(8, ln.layer);
+        push(10, ln.x1.toFixed(4)); push(20, ln.y1.toFixed(4)); push(30, '0.0');
+        push(11, ln.x2.toFixed(4)); push(21, ln.y2.toFixed(4)); push(31, '0.0');
+      }
+      for (const pl of P.polylines) {
+        let pts = pl.points;
+        if (pl.closed && pts.length > 2) pts = pts.slice(0, -1);
+        push(0, 'POLYLINE'); push(8, pl.layer); push(66, 1); push(70, pl.closed ? 1 : 0);
+        for (const q of pts) {
+          push(0, 'VERTEX'); push(8, pl.layer);
+          push(10, q.x.toFixed(4)); push(20, q.y.toFixed(4)); push(30, '0.0');
+        }
+        push(0, 'SEQEND');
+      }
+      for (const sd of P.solids) {
+        const [a, b, c] = sd.points;
+        push(0, 'SOLID'); push(8, sd.layer);
+        push(10, a.x.toFixed(4)); push(20, a.y.toFixed(4)); push(30, '0.0');
+        push(11, b.x.toFixed(4)); push(21, b.y.toFixed(4)); push(31, '0.0');
+        push(12, c.x.toFixed(4)); push(22, c.y.toFixed(4)); push(32, '0.0');
+        push(13, c.x.toFixed(4)); push(23, c.y.toFixed(4)); push(33, '0.0');
+      }
+      for (const t of P.texts) {
+        push(0, 'TEXT'); push(8, t.layer);
+        push(10, t.x.toFixed(4)); push(20, t.y.toFixed(4)); push(30, '0.0');
+        push(40, t.height.toFixed(2)); push(1, t.text); push(50, t.rotation.toFixed(2));
+        push(72, 1);
+        push(11, t.x.toFixed(4)); push(21, t.y.toFixed(4)); push(31, '0.0');
+        push(73, 2);
+      }
+      push(0, 'ENDSEC'); push(0, 'EOF');
+      return out.join('\r\n');
+    }
+
+    function exportDrawing(ext) {
+      if (!p.loaded || !p.prims) { toast('Upload a JPEG or PNG image first.'); return; }
+      const sz = currentSize();
+      const name = `${baseName()}_Parametric_${sz.w}x${sz.h}.${ext}`;
+      if (ext === 'svg') {
+        const svg = $('ipSvg');
+        const clone = svg.cloneNode(true);
+        const pz = clone.querySelector('#ipPanZoom');
+        pz.removeAttribute('transform');
+        const ov = clone.querySelector('#ipOverlay');
+        if (ov) ov.remove();
+        clone.removeAttribute('class');
+        const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+        clone.setAttribute('width', vb[2].toFixed(2) + 'mm');
+        clone.setAttribute('height', vb[3].toFixed(2) + 'mm');
+        triggerDownload('<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone), name, 'image/svg+xml;charset=utf-8');
+        toast(`Downloaded ${name}`);
+      } else {
+        triggerDownload(buildDxf(), name, 'application/acad');
+        toast(`Exported 1:1 mm CAD file: ${name}`);
+      }
+    }
+
+    // ------------------------------------------------------------------ tab wiring
+    const TAB_ON = ['bg-slate-100', 'text-slate-900', 'border-slate-100'];
+    const TAB_OFF = ['text-slate-300', 'hover:text-white', 'hover:bg-slate-800', 'border-transparent'];
+    function styleTab(btn, on) {
+      TAB_ON.forEach((c) => btn.classList.toggle(c, on));
+      TAB_OFF.forEach((c) => btn.classList.toggle(c, !on));
+    }
+    function syncGridButton(on) {
+      const b = $('btnToggleGrid');
+      b.textContent = on ? 'Grid: ON' : 'Grid: OFF';
+      b.classList.toggle('bg-slate-700', on);
+      b.classList.toggle('text-sky-300', on);
+      b.classList.toggle('text-slate-300', !on);
+    }
+    let switching = false;
+    function activate() {
+      switching = true;
+      $('tabParametric').click();             // lets the existing tabs tidy their own state first
+      switching = false;
+      p.tabActive = true;
+      $('pageParametric').style.display = 'none';
+      $('pageUpload').style.display = 'none';
+      $('pageImgParam').style.display = 'flex';
+      styleTab($('tabParametric'), false);
+      styleTab($('tabUpload'), false);
+      styleTab($('tabImgParam'), true);
+      $('exportDropdown').classList.add('hidden');
+      syncGridButton(p.showGrid);
+      if (p.loaded) applyView(); else $('zoomLabel').textContent = '100%';
+    }
+    function deactivate() {
+      if (switching || !p.tabActive) return;
+      p.tabActive = false;
+      setMode('none');
+      $('ipEditor').classList.add('hidden');
+      $('pageImgParam').style.display = 'none';
+      styleTab($('tabImgParam'), false);
+    }
+    $('tabImgParam').addEventListener('click', activate);
+    $('tabParametric').addEventListener('click', deactivate);
+    $('tabUpload').addEventListener('click', deactivate);
+
+    // While this tab is open, the shared header tools act on it.
+    const HEADER_IDS = ['btnUploadJpeg', 'btnExportDwg', 'btnExportDwgAlt', 'btnExportDxf', 'btnExportSvg',
+                        'btnZoomIn', 'btnZoomOut', 'btnZoomReset', 'btnToggleGrid'];
+    document.addEventListener('click', (e) => {
+      if (!p.tabActive) return;
+      const el = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!el || HEADER_IDS.indexOf(el.id) === -1) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      $('exportDropdown').classList.add('hidden');
+      switch (el.id) {
+        case 'btnUploadJpeg': $('ipFileInput').click(); break;
+        case 'btnExportDwg':
+        case 'btnExportDwgAlt': exportDrawing('dwg'); break;
+        case 'btnExportDxf': exportDrawing('dxf'); break;
+        case 'btnExportSvg': exportDrawing('svg'); break;
+        case 'btnZoomIn': if (p.loaded) zoomCentre(1.2); break;
+        case 'btnZoomOut': if (p.loaded) zoomCentre(1 / 1.2); break;
+        case 'btnZoomReset': p.zoom = 1; p.panX = 0; p.panY = 0; applyView(); break;
+        case 'btnToggleGrid':
+          p.showGrid = !p.showGrid;
+          vp.classList.toggle('cad-grid-bg', p.showGrid);
+          vp.classList.toggle('cad-clean-bg', !p.showGrid);
+          syncGridButton(p.showGrid);
+          break;
+      }
+    }, true);
+
+    // ------------------------------------------------------------------ sidebar wiring
+    const fileInput = $('ipFileInput');
+    const dropZone = $('ipDropZone');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    $('ipBtnEmpty').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) loadFile(f);
+      fileInput.value = '';
+    });
+    [vp, dropZone].forEach((z) => {
+      z.addEventListener('dragenter', (e) => e.preventDefault());
+      z.addEventListener('dragover', (e) => e.preventDefault());
+      z.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) loadFile(f);
+      });
+    });
+
+    // dimension cards (event delegation)
+    $('ipDimList').addEventListener('input', (e) => {
+      const el = e.target;
+      if (!el.dataset || !el.dataset.ipDim) return;
+      const id = parseInt(el.dataset.ipDim, 10);
+      const v = parseFloat(el.value);
+      if (v > 0 && setDimValue(id, v)) refreshDimInputs(id);
+    });
+    $('ipDimList').addEventListener('focusout', (e) => {
+      if (e.target.dataset && e.target.dataset.ipDim) refreshDimInputs(null);
+    });
+    $('ipDimList').addEventListener('click', (e) => {
+      const b = e.target.closest ? e.target.closest('[data-ip-del]') : null;
+      if (!b) return;
+      const id = parseInt(b.dataset.ipDel, 10);
+      p.dims = p.dims.filter((d) => d.id !== id);
+      render();
+      buildDimList();
+    });
+    $('ipBtnAddH').addEventListener('click', () => {
+      if (!p.loaded) { toast('Upload an image first.'); return; }
+      setMode(p.mode === 'pickx' ? 'none' : 'pickx');
+    });
+    $('ipBtnAddV').addEventListener('click', () => {
+      if (!p.loaded) { toast('Upload an image first.'); return; }
+      setMode(p.mode === 'picky' ? 'none' : 'picky');
+    });
+    $('ipBtnErase').addEventListener('click', () => {
+      if (!p.loaded) { toast('Upload an image first.'); return; }
+      setMode(p.mode === 'erase' ? 'none' : 'erase');
+    });
+    $('ipBtnRestore').addEventListener('click', () => {
+      if (!p.loaded) return;
+      p.paths.forEach((q) => { q.erased = false; });
+      render();
+      toast('Restored all erased lines');
+    });
+    $('ipBtnReset').addEventListener('click', () => {
+      if (!p.loaded || !(p.extX > 0)) return;
+      resetDims();
+      p.paths.forEach((q) => { q.erased = false; });
+      p.zoom = 1; p.panX = 0; p.panY = 0;
+      setMode('none');
+      render();
+      buildDimList();
+      toast('Reset to the uploaded image (dimensions and erased lines restored)');
+    });
+
+    $('ipScale').addEventListener('input', () => {
+      const v = parseFloat($('ipScale').value);
+      if (!(v > 0) || !p.loaded) return;
+      p.k = v;
+      render();
+      refreshDimInputs(null);
+    });
+    $('ipScale').addEventListener('blur', () => { $('ipScale').value = p.k; });
+    $('ipBtnCalib').addEventListener('click', () => {
+      const v = parseFloat($('ipCalib').value);
+      if (!p.loaded || !(v > 0)) { toast('Enter the overall width in mm.'); return; }
+      const cum = axCum(p.ax.x);
+      const curPx = axMap(p.ax.x, p.extX, cum) - axMap(p.ax.x, 0, cum);
+      if (!(curPx > 0)) return;
+      p.k = v / curPx;
+      $('ipScale').value = String(Math.round(p.k * 1e6) / 1e6);
+      render();
+      refreshDimInputs(null);
+      toast(`Calibrated: overall width = ${fmtIn(v)} mm`);
+    });
+
+    $('ipLineWeight').addEventListener('change', () => {
+      p.lineWeight = parseFloat($('ipLineWeight').value);
+      render();
+    });
+    $('ipThr').addEventListener('input', () => {
+      p.threshold = parseInt($('ipThr').value, 10);
+      $('ipLblThr').textContent = p.threshold;
+      scheduleProcess();
+    });
+    $('ipBtnAuto').addEventListener('click', () => {
+      if (!p.loaded) return;
+      const lum = p.invert ? p.gray.map((v) => 255 - v) : p.gray;
+      const o = upOtsu(lum);
+      const t = clamp(Math.round(o + (255 - o) * 0.6), 40, 245);
+      p.threshold = t; $('ipThr').value = t; $('ipLblThr').textContent = t;
+      scheduleProcess(0);
+    });
+    $('ipEps').addEventListener('input', () => {
+      p.eps = parseFloat($('ipEps').value);
+      $('ipLblEps').textContent = `${p.eps.toFixed(2)} px`;
+      scheduleProcess();
+    });
+    $('ipMin').addEventListener('input', () => {
+      p.minLen = parseInt($('ipMin').value, 10);
+      $('ipLblMin').textContent = `${p.minLen} px`;
+      scheduleProcess();
+    });
+    $('ipInvert').addEventListener('change', () => { p.invert = $('ipInvert').checked; scheduleProcess(0); });
+  })();
+  </script>
+</body>
+</html>
